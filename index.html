@@ -1,0 +1,194 @@
+<!doctypehtml>
+<html lang="ru">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Каталог фильмов</title>
+<link rel="stylesheet" href="styles.css">
+<div class="titlebar">
+  <div class="titlebar-content">
+    <div class="titlebar-title">
+      <h1 id="mainTitle">Каталог фильмов</h1>
+      <div class="subtitle" id="mainSubtitle">База фильмов и сериалов</div>
+    </div>
+    <div class="titlebar-controls">
+      <button id="backBtn" class="back-btn" style="display:none">Назад</button>
+      <button id="settingsBtn" class="settings-btn">Настройки</button>
+      <div class="window-controls">
+        <button id="minimizeBtn" class="window-btn" title="Свернуть">−</button>
+        <button id="maximizeBtn" class="window-btn" title="Развернуть">□</button>
+        <button id="closeBtn" class="window-btn close" title="Закрыть">×</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="container">
+  <div id="catalogScreen" class="screen active">
+    <div class="main-layout">
+      <div class="search-panel">
+        <div class="search-section">
+          <h3>Поиск</h3>
+          <div class="input-group">
+            <label for="movieTitle">Название:</label>
+            <input id="movieTitle" placeholder="Введите название...">
+          </div>
+          <div class="input-group">
+            <label for="kinopoiskId">ID Кинопоиска:</label>
+            <input id="kinopoiskId" placeholder="Например: 666">
+            <div class="validation-info" id="idValidation"></div>
+          </div>
+          <div class="filters">
+            <div class="input-group">
+              <label for="typeFilter">Тип:</label>
+              <select id="typeFilter">
+                <option value="">Все
+                  <option value="film">Фильмы
+                    <option value="series">Сериалы
+                      <option value="cartoon">Мультфильмы
+                        <option value="cartoon-serials">Мультсериалы
+                          <option value="show">Шоу
+                            <option value="anime">Аниме
+                              <option value="anime-serials">Аниме-сериалы</select>
+            </div>
+            <div class="input-group">
+              <label for="qualityFilter">Качество:</label>
+              <select id="qualityFilter">
+                <option value="">Все
+                  <option value="4">FHD (1080p)
+                    <option value="1">HD (720p)
+                      <option value="3">SD
+                        <option value="2">TS
+                          <option value="0">Не указано</select>
+            </div>
+            <div class="input-group">
+              <label for="yearFilter">Год:</label>
+              <input type="number" id="yearFilter" placeholder="2024" min="1900" max="2030">
+            </div>
+          </div>
+          <div class="control-buttons">
+            <button id="searchBtn" class="btn primary"><span class="btn-text">Найти</span> <span class="btn-loading" style="display:none">Поиск...</span></button>
+            <button id="clearBtn" class="btn secondary">Очистить</button>
+          </div>
+        </div>
+        <div class="stats-section">
+          <div class="stat-item">
+            <div class="stat-value" id="totalMovies">0</div>
+            <div class="stat-label">Всего фильмов</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="currentPage">1</div>
+            <div class="stat-label">Страница</div>
+          </div><a href="#" id="openFramerateLink" class="framerate-live">Framerate.live</a></div>
+      </div>
+      <div class="movies-panel">
+        <div class="panel-header">
+          <h2>Фильмы</h2>
+          <div class="pagination-controls">
+            <button id="prevPage" class="pagination-btn" disabled="disabled">‹</button> <span class="page-info"><span id="pageNumber">1</span></span>
+            <button id="nextPage" class="pagination-btn">›</button>
+          </div>
+        </div>
+        <div id="moviesContainer" class="movies-container">
+          <div class="placeholder">
+            <div class="placeholder-icon">Загрузка фильмов...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="movieScreen" class="screen">
+    <div class="movie-player-layout">
+      <div class="movie-info-section">
+        <div class="movie-main-info">
+          <div class="movie-header">
+            <div class="movie-poster-large"><img id="posterImage" src="" alt="Постер фильма"></div>
+            <div class="movie-title-section">
+              <h2 id="moviePlayerTitle">Название фильма</h2>
+              <div class="movie-meta-tags"><span id="moviePlayerYear" class="meta-tag year-tag">—</span> <span id="moviePlayerQuality" class="meta-tag quality-tag">—</span> <span id="moviePlayerAge" class="meta-tag age-tag">—</span> <span id="moviePlayerType" class="meta-tag type-tag">—</span></div>
+              <div class="movie-ratings"><span class="rating-kp" id="moviePlayerKp">КП: —</span> <span class="rating-imdb" id="moviePlayerImdb">IMDb: —</span></div>
+              <div class="movie-categories">
+                <div class="category-tags" id="categoryTags"></div>
+              </div>
+            </div>
+          </div>
+          <div class="movie-info-content">
+            <div class="info-block">
+              <h3>Основная информация</h3>
+              <div class="info-grid">
+                <div class="info-label">Оригинальное название:</div>
+                <div class="info-value" id="originalTitle">—</div>
+                <div class="info-label">Жанр:</div>
+                <div class="info-value" id="movieGenre">—</div>
+                <div class="info-label">Страна:</div>
+                <div class="info-value" id="movieCountry">—</div>
+                <div class="info-label">Режиссер:</div>
+                <div class="info-value" id="movieDirector">—</div>
+                <div class="info-label">Актеры:</div>
+                <div class="info-value" id="movieActors">—</div>
+                <div class="info-label">Длительность:</div>
+                <div class="info-value" id="movieDuration">—</div>
+              </div>
+            </div>
+            <div class="info-block">
+              <h3>Дополнительная информация</h3>
+              <div class="info-grid">
+                <div class="info-label">Бюджет:</div>
+                <div class="info-value" id="movieBudget">—</div>
+                <div class="info-label">Сборы в мире:</div>
+                <div class="info-value" id="movieFeesWorld">—</div>
+                <div class="info-label">Сборы в США:</div>
+                <div class="info-value" id="movieFeesUsa">—</div>
+                <div class="info-label">Сборы в РФ:</div>
+                <div class="info-value" id="movieFeesRus">—</div>
+                <div class="info-label">Премьера (мир):</div>
+                <div class="info-value" id="moviePremier">—</div>
+                <div class="info-label">Премьера (РФ):</div>
+                <div class="info-value" id="moviePremierRus">—</div>
+              </div>
+            </div>
+            <div class="info-block parts-section" id="partsSection" style="display:none">
+              <h3>Другие части франшизы</h3>
+              <div id="partsList" class="parts-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="player-section">
+        <div class="player-switcher">
+          <button id="player1Btn" class="player-btn active" data-player="main">Основной плеер</button>
+          <button id="player2Btn" class="player-btn" data-player="alternative">Альтернативный плеер</button>
+        </div>
+        <div id="mainPlayer" class="player-container active">
+          <iframe id="videoPlayer" allowfullscreen webkitallowfullscreen mozallowfullscreen></iframe>
+        </div>
+        <div id="alternativePlayer" class="player-container">
+          <iframe id="alternativeVideoPlayer" allowfullscreen webkitallowfullscreen mozallowfullscreen></iframe>
+          <div class="player-loading" id="altPlayerLoading">Загрузка альтернативного плеера...</div>
+        </div>
+        <div class="info-message-panel">
+          <div class="info-message"><strong>Важно:</strong> Если плееры не загружаются, попробуйте использовать VPN. Ошибка 404 означает, что видео отсутствует в базе данных.</div>
+        </div>
+        <div class="description-panel">
+          <h3>Описание</h3>
+          <div class="movie-description">
+            <p id="moviePlayerDescription">Описание отсутствует</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="settingsModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Настройки</h3></div>
+    <div class="modal-body">
+      <label class="checkbox-label">
+        <input type="checkbox" id="blockAdsToggle"> <span class="checkmark"></span> Блокировать рекламу</label>
+      <div class="app-info-section">
+        <div class="info-item"><strong>Версия приложения</strong> <span>1.0</span></div>
+        <div class="info-item"><strong>Автор</strong> <span>Ярослав [Zhivem]</span></div>
+      </div>
+      <div class="modal-hint">Закрытие: клавиша Esc</div>
+    </div>
+  </div>
+</div>
+<script src="renderer.js"></script>
