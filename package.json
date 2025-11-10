@@ -1,23 +1,72 @@
 {
   "name": "movie-search-app",
-  "version": "1.0",
+  "version": "1.0.0",
   "description": "Приложение для поиска и просмотра фильмов",
   "main": "main.js",
   "type": "module",
   "scripts": {
     "start": "electron . --disable-gpu-sandbox --disable-features=VizDisplayCompositor",
     "dev": "electron . --debug --disable-gpu-sandbox --disable-features=VizDisplayCompositor",
-    "dist": "electron-packager . \"Каталог Фильмов\" --platform=win32 --arch=x64 --out=release/ --overwrite --asar --prune=true --ignore=\"(\\\\.git|\\\\.vscode|src/|webpack\\\\..*|README\\\\.md|\\\\.npmrc|tsconfig\\\\.json|\\\\.eslintrc|test/|spec/)\" --app-copyright=\"Copyright 2024\" --app-version=1.0.0 --icon=assets/icon.ico"
+    "dist": "electron-builder",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "build": {
+    "appId": "com.zhive.movieapp",
+    "productName": "Каталог Фильмов",
+    "copyright": "Copyright © 2025 Zhivem",
+    "compression": "maximum",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/movie.ico",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Каталог Фильмов",
+      "installerIcon": "assets/movie.ico",
+      "uninstallerIcon": "assets/movie.ico",
+      "installerHeaderIcon": "assets/movie.ico"
+    },
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "styles.css",
+      "renderer.js",
+      "assets/**/*",
+      "!assets/**/*.psd",
+      "!assets/**/*.ai"
+    ],
+    "extraResources": [
+      {
+        "from": "assets/movie.ico",
+        "to": "movie.ico"
+      }
+    ],
+    "forceCodeSigning": false
   },
   "devDependencies": {
-    "electron": "^39.1.1"
+    "electron": "^39.1.1",
+    "electron-builder": "^26.0.12"
   },
   "dependencies": {
     "@ghostery/adblocker-electron": "^2.12.5",
     "axios": "^1.6.0",
     "cross-fetch": "^4.1.0",
-    "dotenv": "^17.2.3",
-    "electron-packager": "^17.1.2",
     "electron-store": "^11.0.2"
   },
   "author": "Zhivem",

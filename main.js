@@ -5,8 +5,6 @@ import axios from 'axios';
 import { ElectronBlocker } from '@ghostery/adblocker-electron';
 import fetch from 'cross-fetch';
 import Store from 'electron-store';
-import dotenv from 'dotenv';
-dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,10 +15,10 @@ app.disableHardwareAcceleration();
 let mainWindow;
 
 const CONFIG = {
-    API_TOKEN: process.env.API_TOKEN,
-    API_BASE: process.env.API_BASE,
-    ALT_API_TOKEN: process.env.ALT_API_TOKEN,
-    ALT_API_BASE: process.env.ALT_API_BASE,
+    API_TOKEN: "KEY",
+    API_BASE: "BALANCER",
+    ALT_API_TOKEN: "KEY",
+    ALT_API_BASE: "BALANCER",
     WINDOW: {
         width: 1200,
         height: 700,
@@ -32,23 +30,7 @@ const CONFIG = {
     }
 };
 
-function validateConfig() {
-    const required = ['API_TOKEN', 'API_BASE', 'ALT_API_TOKEN', 'ALT_API_BASE'];
-    const missing = required.filter(key => !process.env[key]);
-    
-    if (missing.length > 0) {
-        console.error('❌ Отсутствуют обязательные переменные окружения:', missing.join(', '));
-        console.log('💡 Создайте файл .env на основе .env.example');
-        app.quit();
-        return false;
-    }
-    
-    console.log('✅ Все переменные окружения загружены');
-    return true;
-}
-
 async function createWindow() {
-    if (!validateConfig()) return;
     mainWindow = new BrowserWindow({
         ...CONFIG.WINDOW,
         webPreferences: {
@@ -57,7 +39,7 @@ async function createWindow() {
             webSecurity: false,
             preload: path.join(__dirname, 'preload.js')
         },
-        icon: path.join(__dirname, 'assets', 'movie.png'),
+        icon: path.join(__dirname, 'assets', 'movie.ico'),
         title: "Каталог фильмов",
         show: false 
     });
@@ -93,6 +75,7 @@ async function initializeAdBlocker() {
     }
 }
 
+// Универсальный обработчик API запросов
 async function apiRequest(url, params = {}, options = {}) {
     try {
         const response = await axios.get(url, {
@@ -166,6 +149,7 @@ async function getKinopoiskRatings(kinopoiskId) {
     };
 }
 
+// === IPC HANDLERS ===
 const ipcHandlers = {
     'window-minimize': () => mainWindow.minimize(),
     'window-maximize': () => mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize(),
@@ -178,6 +162,7 @@ const ipcHandlers = {
         if (url && url !== 'null') await shell.openExternal(url);
         return { success: true };
     },
+    // 👇 НОВАЯ СТРОКА:
     'open-external-url': async (_, url) => {
         if (typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'))) {
             await shell.openExternal(url);
@@ -194,10 +179,12 @@ const ipcHandlers = {
     }
 };
 
+// Регистрация всех обработчиков
 Object.entries(ipcHandlers).forEach(([channel, handler]) => {
     ipcMain.handle(channel, handler);
 });
 
+// === APP EVENTS ===
 app.whenReady().then(createWindow);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
