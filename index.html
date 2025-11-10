@@ -4,6 +4,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Каталог фильмов</title>
 <link rel="stylesheet" href="styles.css">
+<script src="https://tv-1-kinoserial.net/static/js/addiframe.js"></script>
 <div class="titlebar">
   <div class="titlebar-content">
     <div class="titlebar-title">
@@ -157,13 +158,19 @@
           <button id="player1Btn" class="player-btn active" data-player="main">Основной плеер</button>
           <button id="player2Btn" class="player-btn" data-player="alternative">Альтернативный плеер</button>
         </div>
+        
         <div id="mainPlayer" class="player-container active">
-          <iframe id="videoPlayer" allowfullscreen webkitallowfullscreen mozallowfullscreen></iframe>
+          <div id="mainIframeContainer">
+            <div id="mainIframe"></div>
+          </div>
+          <div class="player-loading" id="mainPlayerLoading">Загрузка основного плеера...</div>
         </div>
+        
         <div id="alternativePlayer" class="player-container">
           <iframe id="alternativeVideoPlayer" allowfullscreen webkitallowfullscreen mozallowfullscreen></iframe>
           <div class="player-loading" id="altPlayerLoading">Загрузка альтернативного плеера...</div>
         </div>
+        
         <div class="info-message-panel">
           <div class="info-message"><strong>Важно:</strong> Если плееры не загружаются, попробуйте использовать VPN. Ошибка 404 означает, что видео отсутствует в базе данных.</div>
         </div>
@@ -191,4 +198,7 @@
     </div>
   </div>
 </div>
+
 <script src="renderer.js"></script>
+</body>
+</html>

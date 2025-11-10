@@ -12,7 +12,7 @@
   },
   "build": {
     "appId": "com.zhive.movieapp",
-    "productName": "Каталог Фильмов",
+    "productName": "FlickTap",
     "copyright": "Copyright © 2025 Zhivem",
     "compression": "maximum",
     "win": {

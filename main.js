@@ -17,8 +17,6 @@ let mainWindow;
 const CONFIG = {
     API_TOKEN: "KEY",
     API_BASE: "BALANCER",
-    ALT_API_TOKEN: "KEY",
-    ALT_API_BASE: "BALANCER",
     WINDOW: {
         width: 1200,
         height: 700,
@@ -75,7 +73,6 @@ async function initializeAdBlocker() {
     }
 }
 
-// Универсальный обработчик API запросов
 async function apiRequest(url, params = {}, options = {}) {
     try {
         const response = await axios.get(url, {
@@ -105,25 +102,6 @@ async function getMovieDetails(params) {
     );
 }
 
-async function getAlternativePlayer(kinopoiskId) {
-    const result = await apiRequest(CONFIG.ALT_API_BASE, {
-        api_token: CONFIG.ALT_API_TOKEN,
-        kinopoisk_id: kinopoiskId
-    }, { timeout: 10000 });
-
-    if (!result.success) return result;
-
-    const videoData = result.data?.data?.[0];
-    if (videoData?.iframe_src && videoData.iframe_src !== 'null') {
-        return { 
-            success: true, 
-            data: { iframe_url: videoData.iframe_src } 
-        };
-    }
-    
-    return { success: false, error: 'Ссылка на плеер не найдена' };
-}
-
 async function getKinopoiskRatings(kinopoiskId) {
     const result = await apiRequest(`https://rating.kinopoisk.ru/${kinopoiskId}.xml`, 
         {}, 
@@ -149,20 +127,17 @@ async function getKinopoiskRatings(kinopoiskId) {
     };
 }
 
-// === IPC HANDLERS ===
 const ipcHandlers = {
     'window-minimize': () => mainWindow.minimize(),
     'window-maximize': () => mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize(),
     'window-close': () => mainWindow.close(),
     'get-movie-list': (_, params) => getMovieList(params),
     'get-movie-details': (_, params) => getMovieDetails(params),
-    'get-alternative-player': (_, kinopoiskId) => getAlternativePlayer(kinopoiskId),
     'get-kinopoisk-ratings': (_, kinopoiskId) => getKinopoiskRatings(kinopoiskId),
     'open-trailer': async (_, url) => {
         if (url && url !== 'null') await shell.openExternal(url);
         return { success: true };
     },
-    // 👇 НОВАЯ СТРОКА:
     'open-external-url': async (_, url) => {
         if (typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'))) {
             await shell.openExternal(url);
@@ -179,12 +154,10 @@ const ipcHandlers = {
     }
 };
 
-// Регистрация всех обработчиков
 Object.entries(ipcHandlers).forEach(([channel, handler]) => {
     ipcMain.handle(channel, handler);
 });
 
-// === APP EVENTS ===
 app.whenReady().then(createWindow);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
