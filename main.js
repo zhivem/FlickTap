@@ -13,151 +13,209 @@ const store = new Store();
 app.disableHardwareAcceleration();
 
 let mainWindow;
+let adBlocker = null;
 
+/**
+ * Application configuration.
+ */
 const CONFIG = {
-    API_TOKEN: "KEY",
-    API_BASE: "BALANCER",
-    WINDOW: {
-        width: 1200,
-        height: 700,
-        minWidth: 1200,
-        minHeight: 700,
-        frame: false,
-        titleBarStyle: 'hidden',
-        backgroundColor: '#0f0f0f'
-    }
+  API_TOKEN: "KEY",
+  API_BASE: "BALANCER",
+  WINDOW: {
+    width: 1200,
+    height: 700,
+    minWidth: 1200,
+    minHeight: 700,
+    frame: false,
+    titleBarStyle: 'hidden',
+    backgroundColor: '#0f0f0f'
+  }
 };
 
+/**
+ * Creates the main window.
+ */
 async function createWindow() {
-    mainWindow = new BrowserWindow({
-        ...CONFIG.WINDOW,
-        webPreferences: {
-            nodeIntegration: false,
-            contextIsolation: true,
-            webSecurity: false,
-            preload: path.join(__dirname, 'preload.js')
-        },
-        icon: path.join(__dirname, 'assets', 'movie.ico'),
-        title: "Каталог фильмов",
-        show: false 
+  mainWindow = new BrowserWindow({
+    ...CONFIG.WINDOW,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      webSecurity: false,
+      preload: path.join(__dirname, 'preload.js')
+    },
+    icon: path.join(__dirname, 'assets', 'movie.ico'),
+    title: "Каталог фильмов",
+    show: false
+  });
+
+  mainWindow.once('ready-to-show', () => mainWindow.show());
+  mainWindow.on('maximize', () => mainWindow.webContents.send('window-maximized'));
+  mainWindow.on('unmaximize', () => mainWindow.webContents.send('window-unmaximized'));
+
+  await initializeAdBlocker();
+  await mainWindow.loadFile('index.html');
+  mainWindow.setMenuBarVisibility(false);
+
+  if (process.argv.includes('--debug')) {
+    mainWindow.webContents.openDevTools();
+  }
+}
+
+/**
+ * Initializes ad blocker if enabled.
+ */
+async function initializeAdBlocker() {
+  try {
+    adBlocker = await ElectronBlocker.fromLists(fetch, [
+      'https://cdn.jsdelivr.net/gh/dimisa-RUAdList/RUAdListCDN@main/lists/ruadlist.ubo.min.txt',
+    ], {
+      enableCompression: true,
+      loadNetworkFilters: true,
     });
 
-    mainWindow.once('ready-to-show', () => mainWindow.show());
-    mainWindow.on('maximize', () => mainWindow.webContents.send('window-maximized'));
-    mainWindow.on('unmaximize', () => mainWindow.webContents.send('window-unmaximized'));
-
-    await initializeAdBlocker();
-    mainWindow.loadFile('index.html');
-    mainWindow.setMenuBarVisibility(false);
-
-    if (process.argv.includes('--debug')) {
-        mainWindow.webContents.openDevTools();
+    const blockAds = store.get('blockAds', true);
+    if (blockAds && adBlocker) {
+      adBlocker.enableBlockingInSession(session.defaultSession);
     }
+    console.log('AdBlocker initialized');
+  } catch (error) {
+    console.error('AdBlocker initialization failed:', error);
+  }
 }
 
-async function initializeAdBlocker() {
-    try {
-        const blocker = await ElectronBlocker.fromLists(fetch, [
-            'https://cdn.jsdelivr.net/gh/dimisa-RUAdList/RUAdListCDN@main/lists/ruadlist.ubo.min.txt',
-        ], {
-            enableCompression: true,
-            loadNetworkFilters: true,
-        });
-
-        const blockAds = store.get('blockAds', true);
-        if (blockAds) {
-            blocker.enableBlockingInSession(session.defaultSession);
-        }
-    } catch (error) {
-        console.error('AdBlocker error:', error);
-    }
-}
-
+/**
+ * Generic API request handler with error handling.
+ */
 async function apiRequest(url, params = {}, options = {}) {
-    try {
-        const response = await axios.get(url, {
-            params,
-            timeout: options.timeout || 15000,
-            ...options
-        });
-        return { success: true, data: response.data };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
+  try {
+    const response = await axios.get(url, {
+      params,
+      timeout: options.timeout || 15000,
+      headers: options.headers || {},
+      ...options
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error(`API request failed for ${url}:`, error.message);
+    return { success: false, error: error.message };
+  }
 }
 
+/**
+ * Fetches movie list.
+ */
 async function getMovieList(params = {}) {
-    const defaultParams = {
-        token: CONFIG.API_TOKEN,
-        limit: params.limit || 12,
-        page: params.page || 1
-    };
-    return await apiRequest(`${CONFIG.API_BASE}/list`, { ...defaultParams, ...params });
+  const defaultParams = {
+    token: CONFIG.API_TOKEN,
+    limit: params.limit || 12,
+    page: params.page || 1
+  };
+  return await apiRequest(`${CONFIG.API_BASE}/list`, { ...defaultParams, ...params });
 }
 
+/**
+ * Fetches movie details.
+ */
 async function getMovieDetails(params) {
-    return await apiRequest(`${CONFIG.API_BASE}/franchise/details`, 
-        { token: CONFIG.API_TOKEN, ...params }, 
-        { timeout: 10000 }
-    );
+  return await apiRequest(`${CONFIG.API_BASE}/franchise/details`, 
+    { token: CONFIG.API_TOKEN, ...params }, 
+    { timeout: 10000 }
+  );
 }
 
+/**
+ * Fetches Kinopoisk ratings.
+ */
 async function getKinopoiskRatings(kinopoiskId) {
-    const result = await apiRequest(`https://rating.kinopoisk.ru/${kinopoiskId}.xml`, 
-        {}, 
-        { 
-            timeout: 5000,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-        }
-    );
+  const result = await apiRequest(`https://rating.kinopoisk.ru/${kinopoiskId}.xml`, 
+    {}, 
+    { 
+      timeout: 5000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    }
+  );
 
-    if (!result.success) return result;
+  if (!result.success) return result;
 
-    const kpMatch = result.data.match(/<kp_rating[^>]*>([^<]*)<\/kp_rating>/);
-    const imdbMatch = result.data.match(/<imdb_rating[^>]*>([^<]*)<\/imdb_rating>/);
-    
-    return { 
-        success: true, 
-        data: { 
-            kinopoisk: kpMatch?.[1] || null,
-            imdb: imdbMatch?.[1] || null
-        } 
-    };
+  const kpMatch = result.data.match(/<kp_rating[^>]*>([^<]*)<\/kp_rating>/);
+  const imdbMatch = result.data.match(/<imdb_rating[^>]*>([^<]*)<\/imdb_rating>/);
+  
+  return { 
+    success: true, 
+    data: { 
+      kinopoisk: kpMatch?.[1] || null,
+      imdb: imdbMatch?.[1] || null
+    } 
+  };
 }
 
+/**
+ * IPC handlers registry.
+ */
 const ipcHandlers = {
-    'window-minimize': () => mainWindow.minimize(),
-    'window-maximize': () => mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize(),
-    'window-close': () => mainWindow.close(),
-    'get-movie-list': (_, params) => getMovieList(params),
-    'get-movie-details': (_, params) => getMovieDetails(params),
-    'get-kinopoisk-ratings': (_, kinopoiskId) => getKinopoiskRatings(kinopoiskId),
-    'open-trailer': async (_, url) => {
-        if (url && url !== 'null') await shell.openExternal(url);
-        return { success: true };
-    },
-    'open-external-url': async (_, url) => {
-        if (typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'))) {
-            await shell.openExternal(url);
-            return { success: true };
-        }
-        return { success: false, error: 'Недопустимый URL' };
-    },
-    'get-settings': () => ({ blockAds: store.get('blockAds', true) }),
-    'set-block-ads': async (_, enabled) => {
-        store.set('blockAds', enabled);
-        await session.defaultSession.clearCache();
-        if (enabled) initializeAdBlocker();
-        return { success: true };
+  'window-minimize': () => mainWindow.minimize(),
+  'window-maximize': () => {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
     }
+  },
+  'window-close': () => mainWindow.close(),
+  'get-movie-list': (_, params) => getMovieList(params),
+  'get-movie-details': (_, params) => getMovieDetails(params),
+  'get-kinopoisk-ratings': (_, kinopoiskId) => getKinopoiskRatings(kinopoiskId),
+  'open-trailer': async (_, url) => {
+    if (url && url !== 'null') {
+      await shell.openExternal(url);
+    }
+    return { success: true };
+  },
+  'open-external-url': async (_, url) => {
+    if (typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'))) {
+      await shell.openExternal(url);
+      return { success: true };
+    }
+    return { success: false, error: 'Недопустимый URL' };
+  },
+  'get-settings': () => ({ blockAds: store.get('blockAds', true) }),
+  'set-block-ads': async (_, enabled) => {
+    try {
+      store.set('blockAds', enabled);
+      await session.defaultSession.clearCache();
+      if (enabled && !adBlocker) {
+        await initializeAdBlocker();
+      } else if (!enabled && adBlocker) {
+        adBlocker.disableBlockingInSession(session.defaultSession);
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('Settings update failed:', error);
+      return { success: false, error: error.message };
+    }
+  }
 };
 
+/**
+ * Registers all IPC handlers.
+ */
 Object.entries(ipcHandlers).forEach(([channel, handler]) => {
-    ipcMain.handle(channel, handler);
+  ipcMain.handle(channel, handler);
 });
 
 app.whenReady().then(createWindow);
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
+  }
+});

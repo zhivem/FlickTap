@@ -1,10 +1,14 @@
-<!doctypehtml>
+<!doctype html>
 <html lang="ru">
+<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Каталог фильмов</title>
 <link rel="stylesheet" href="styles.css">
 <script src="https://tv-1-kinoserial.net/static/js/addiframe.js"></script>
+<script async src="https://lmx-pl.github.io/lmx-f.github.io/act.js"></script>
+</head>
+<body>
 <div class="titlebar">
   <div class="titlebar-content">
     <div class="titlebar-title">
@@ -41,24 +45,26 @@
             <div class="input-group">
               <label for="typeFilter">Тип:</label>
               <select id="typeFilter">
-                <option value="">Все
-                  <option value="film">Фильмы
-                    <option value="series">Сериалы
-                      <option value="cartoon">Мультфильмы
-                        <option value="cartoon-serials">Мультсериалы
-                          <option value="show">Шоу
-                            <option value="anime">Аниме
-                              <option value="anime-serials">Аниме-сериалы</select>
+                <option value="">Все</option>
+                <option value="film">Фильмы</option>
+                <option value="series">Сериалы</option>
+                <option value="cartoon">Мультфильмы</option>
+                <option value="cartoon-serials">Мультсериалы</option>
+                <option value="show">Шоу</option>
+                <option value="anime">Аниме</option>
+                <option value="anime-serials">Аниме-сериалы</option>
+              </select>
             </div>
             <div class="input-group">
               <label for="qualityFilter">Качество:</label>
               <select id="qualityFilter">
-                <option value="">Все
-                  <option value="4">FHD (1080p)
-                    <option value="1">HD (720p)
-                      <option value="3">SD
-                        <option value="2">TS
-                          <option value="0">Не указано</select>
+                <option value="">Все</option>
+                <option value="4">FHD (1080p)</option>
+                <option value="1">HD (720p)</option>
+                <option value="3">SD</option>
+                <option value="2">TS</option>
+                <option value="0">Не указано</option>
+              </select>
             </div>
             <div class="input-group">
               <label for="yearFilter">Год:</label>
@@ -177,7 +183,8 @@
         <div class="description-panel">
           <h3>Описание</h3>
           <div class="movie-description">
-            <p id="moviePlayerDescription">Описание отсутствует</div>
+            <p id="moviePlayerDescription">Описание отсутствует</p>
+          </div>
         </div>
       </div>
     </div>
