@@ -1,6 +1,6 @@
 {
   "name": "movie-search-app",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Приложение для поиска и просмотра фильмов",
   "main": "main.js",
   "type": "module",

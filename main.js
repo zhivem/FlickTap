@@ -12,6 +12,53 @@ const __dirname = path.dirname(__filename);
 const store = new Store();
 app.disableHardwareAcceleration();
 
+class LimitedCache {
+  constructor(maxSize = 100, ttl = 5 * 60 * 1000) {
+    this.maxSize = maxSize;
+    this.ttl = ttl;
+    this.cache = new Map();
+  }
+
+  get(key) {
+    const item = this.cache.get(key);
+    if (!item) return null;
+    
+    if (Date.now() - item.timestamp > this.ttl) {
+      this.cache.delete(key);
+      return null;
+    }
+    
+    return item.data;
+  }
+
+  set(key, data) {
+    if (this.cache.size >= this.maxSize) {
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
+    }
+    
+    this.cache.set(key, {
+      timestamp: Date.now(),
+      data
+    });
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+
+  cleanup() {
+    const now = Date.now();
+    for (const [key, item] of this.cache.entries()) {
+      if (now - item.timestamp > this.ttl) {
+        this.cache.delete(key);
+      }
+    }
+  }
+}
+
+const cache = new LimitedCache(100, 5 * 60 * 1000);
+
 class MovieApp {
   constructor() {
     this.mainWindow = null;
@@ -56,6 +103,10 @@ class MovieApp {
     this.mainWindow.on('maximize', () => this.mainWindow.webContents.send('window-maximized'));
     this.mainWindow.on('unmaximize', () => this.mainWindow.webContents.send('window-unmaximized'));
 
+    this.mainWindow.on('close', () => {
+      cache.clear();
+    });
+
     await this.initializeAdBlocker();
     await this.mainWindow.loadFile('index.html');
     this.mainWindow.setMenuBarVisibility(false);
@@ -87,19 +138,38 @@ class MovieApp {
 class ApiService {
   constructor(config) {
     this.config = config;
+    this.axiosInstance = axios.create({
+      timeout: 10000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
   }
 
   async makeRequest(url, params = {}, options = {}) {
+    const cacheKey = `req_${url}_${JSON.stringify(params)}`;
+    const cached = cache.get(cacheKey);
+    
+    if (cached) {
+      return cached;
+    }
+
     try {
-      const response = await axios.get(url, {
+      const response = await this.axiosInstance.get(url, {
         params,
-        timeout: options.timeout || 15000,
-        headers: options.headers || {},
         ...options
       });
-      return { success: true, data: response.data };
+      
+      const result = { success: true, data: response.data };
+      cache.set(cacheKey, result);
+      
+      return result;
     } catch (error) {
-      return { success: false, error: error.message };
+      return { 
+        success: false, 
+        error: error.message,
+        code: error.code
+      };
     }
   }
 
@@ -116,49 +186,22 @@ class ApiService {
     return await this.makeRequest(
       `${this.config.API_BASE}/franchise/details`,
       { token: this.config.API_TOKEN, ...params },
-      { timeout: 10000 }
+      { timeout: 8000 }
     );
-  }
-
-  async getKinopoiskRatings(kinopoiskId) {
-    const result = await this.makeRequest(
-      `https://rating.kinopoisk.ru/${kinopoiskId}.xml`,
-      {},
-      {
-        timeout: 5000,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-      }
-    );
-
-    if (!result.success) return result;
-
-    const kpMatch = result.data.match(/<kp_rating[^>]*>([^<]*)<\/kp_rating>/);
-    const imdbMatch = result.data.match(/<imdb_rating[^>]*>([^<]*)<\/imdb_rating>/);
-    
-    return {
-      success: true,
-      data: {
-        kinopoisk: kpMatch?.[1] || null,
-        imdb: imdbMatch?.[1] || null
-      }
-    };
   }
 
   async getTmdbId(kinopoiskId) {
+    const cacheKey = `tmdb_id_${kinopoiskId}`;
+    const cached = cache.get(cacheKey);
+    if (cached) return cached;
+
     const result = await this.makeRequest(
       `https://api.apbugall.org/`,
       {
         token: 'b156e6d24abe787bc067a873c04975',
         kp: kinopoiskId
       },
-      {
-        timeout: 8000,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-      }
+      { timeout: 5000 }
     );
 
     if (!result.success) return result;
@@ -166,7 +209,9 @@ class ApiService {
     try {
       const data = result.data;
       if (data.status === 'success' && data.data && data.data.id_tmdb) {
-        return { success: true, data: { tmdbId: data.data.id_tmdb } };
+        const tmdbResult = { success: true, data: { tmdbId: data.data.id_tmdb } };
+        cache.set(cacheKey, tmdbResult);
+        return tmdbResult;
       }
       return { success: false, error: 'TMDB ID not found' };
     } catch (error) {
@@ -174,40 +219,69 @@ class ApiService {
     }
   }
 
-  async getTmdbPoster(tmdbId, mediaType = 'movie') {
+  async getTmdbData(kinopoiskId, dataType = 'poster', mediaType = 'movie') {
+    const cacheKey = `tmdb_${dataType}_${kinopoiskId}_${mediaType}`;
+    const cached = cache.get(cacheKey);
+    if (cached) return cached;
+
     try {
-      const response = await axios.get(
-        `${this.config.TMDB_BASE_URL}/${mediaType}/${tmdbId}`,
+      const tmdbResult = await this.getTmdbId(kinopoiskId);
+      if (!tmdbResult.success) {
+        return tmdbResult;
+      }
+
+      const response = await this.axiosInstance.get(
+        `${this.config.TMDB_BASE_URL}/${mediaType}/${tmdbResult.data.tmdbId}`,
         {
           params: {
             api_key: this.config.TMDB_API_KEY,
             language: 'ru-RU'
-          },
-          timeout: 10000
+          }
         }
       );
 
-      const posterPath = response.data.poster_path;
-      if (posterPath) {
-        return {
-          success: true,
-          data: {
-            posterUrl: `${this.config.TMDB_IMAGE_BASE}${posterPath}`
-          }
-        };
+      let resultData = null;
+      
+      if (dataType === 'poster') {
+        const posterPath = response.data.poster_path;
+        if (posterPath) {
+          resultData = {
+            success: true,
+            data: {
+              posterUrl: `${this.config.TMDB_IMAGE_BASE}${posterPath}`
+            }
+          };
+        }
+      } else if (dataType === 'description') {
+        const description = response.data.overview;
+        if (description && description.trim() !== '') {
+          resultData = {
+            success: true,
+            data: {
+              description: description,
+              source: 'tmdb'
+            }
+          };
+        }
       }
-      return { success: false, error: 'Poster not found in TMDB' };
+
+      if (resultData) {
+        cache.set(cacheKey, resultData);
+        return resultData;
+      }
+      
+      return { success: false, error: `${dataType} not found in TMDB` };
     } catch (error) {
       return { success: false, error: error.message };
     }
   }
 
-  async getTmdbPosterByKinopoiskId(kinopoiskId, mediaType) {
-    const tmdbResult = await this.getTmdbId(kinopoiskId);
-    if (!tmdbResult.success) {
-      return tmdbResult;
-    }
-    return await this.getTmdbPoster(tmdbResult.data.tmdbId, mediaType);
+  async getTmdbPoster(kinopoiskId, mediaType = 'movie') {
+    return this.getTmdbData(kinopoiskId, 'poster', mediaType);
+  }
+
+  async getTmdbDescription(kinopoiskId, mediaType = 'movie') {
+    return this.getTmdbData(kinopoiskId, 'description', mediaType);
   }
 }
 
@@ -221,7 +295,8 @@ class SettingsService {
     return {
       blockAds: this.store.get('blockAds', true),
       autoStart: this.app.getLoginItemSettings().openAtLogin,
-      highQualityPosters: this.store.get('highQualityPosters', false)
+      highQualityPosters: this.store.get('highQualityPosters', false),
+      useTmdbDescriptions: this.store.get('useTmdbDescriptions', true)
     };
   }
 
@@ -261,14 +336,21 @@ class SettingsService {
       return { success: false, error: error.message };
     }
   }
+
+  setUseTmdbDescriptions(enabled) {
+    try {
+      this.store.set('useTmdbDescriptions', enabled);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
 }
 
-// Initialize services
 const movieApp = new MovieApp();
 const apiService = new ApiService(movieApp.config);
 const settingsService = new SettingsService(store, app);
 
-// IPC Handlers
 const ipcHandlers = {
   'window-minimize': () => movieApp.mainWindow.minimize(),
   'window-maximize': () => {
@@ -281,9 +363,10 @@ const ipcHandlers = {
   'window-close': () => movieApp.mainWindow.close(),
   'get-movie-list': (_, params) => apiService.getMovieList(params),
   'get-movie-details': (_, params) => apiService.getMovieDetails(params),
-  'get-kinopoisk-ratings': (_, kinopoiskId) => apiService.getKinopoiskRatings(kinopoiskId),
   'get-tmdb-poster': (_, { kinopoiskId, mediaType }) => 
-    apiService.getTmdbPosterByKinopoiskId(kinopoiskId, mediaType),
+    apiService.getTmdbPoster(kinopoiskId, mediaType),
+  'get-tmdb-description': (_, { kinopoiskId, mediaType }) =>
+    apiService.getTmdbDescription(kinopoiskId, mediaType),
   'open-external-url': async (_, url) => {
     if (typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'))) {
       await shell.openExternal(url);
@@ -294,7 +377,12 @@ const ipcHandlers = {
   'get-settings': () => settingsService.getSettings(),
   'set-block-ads': (_, enabled) => settingsService.setBlockAds(enabled, movieApp.adBlocker),
   'set-auto-start': (_, enabled) => settingsService.setAutoStart(enabled),
-  'set-high-quality-posters': (_, enabled) => settingsService.setHighQualityPosters(enabled)
+  'set-high-quality-posters': (_, enabled) => settingsService.setHighQualityPosters(enabled),
+  'set-use-tmdb-descriptions': (_, enabled) => settingsService.setUseTmdbDescriptions(enabled),
+  'clear-cache': () => {
+    cache.clear();
+    return { success: true };
+  }
 };
 
 Object.entries(ipcHandlers).forEach(([channel, handler]) => {
@@ -304,6 +392,7 @@ Object.entries(ipcHandlers).forEach(([channel, handler]) => {
 app.whenReady().then(() => movieApp.createWindow());
 
 app.on('before-quit', () => {
+  cache.clear();
   if (movieApp.mainWindow) {
     movieApp.mainWindow.removeAllListeners();
     movieApp.mainWindow = null;

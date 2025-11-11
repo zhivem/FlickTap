@@ -9,8 +9,8 @@ const electronAPI = {
   
   getMovieList: createApiMethod('get-movie-list'),
   getMovieDetails: createApiMethod('get-movie-details'),
-  getKinopoiskRatings: createApiMethod('get-kinopoisk-ratings'),
   getTmdbPoster: createApiMethod('get-tmdb-poster'),
+  getTmdbDescription: createApiMethod('get-tmdb-description'),
   
   openExternalUrl: createApiMethod('open-external-url'),
   
@@ -18,6 +18,8 @@ const electronAPI = {
   setBlockAds: createApiMethod('set-block-ads'),
   setAutoStart: createApiMethod('set-auto-start'),
   setHighQualityPosters: createApiMethod('set-high-quality-posters'),
+  setUseTmdbDescriptions: createApiMethod('set-use-tmdb-descriptions'),
+  clearCache: createApiMethod('clear-cache'),
   
   onWindowMaximized: (callback) => ipcRenderer.on('window-maximized', callback),
   onWindowUnmaximized: (callback) => ipcRenderer.on('window-unmaximized', callback),

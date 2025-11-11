@@ -3,8 +3,8 @@ class MovieCatalogApp {
     this.state = this.initializeState();
     this.constants = this.getConstants();
     this.playerConfig = this.getPlayerConfig();
-    this.boundEscapeHandler = this.handleEscapeKey.bind(this);
-    this.boundClickHandler = this.handleGlobalClick.bind(this);
+    this.boundHandlers = new Map();
+    this.imageCache = new Map();
     
     this.init();
   }
@@ -18,13 +18,13 @@ class MovieCatalogApp {
       settings: {
         blockAds: true,
         autoStart: false,
-        highQualityPosters: false
+        highQualityPosters: false,
+        useTmdbDescriptions: true
       },
       isSearching: false,
       searchParams: {},
       currentMovie: null,
-      currentPlayer: 'main',
-      posterCache: new Map()
+      currentPlayer: 'main'
     };
   }
 
@@ -90,7 +90,6 @@ class MovieCatalogApp {
     await this.loadMovies();
   }
 
-  // UI Management
   createLoadingOverlay() {
     const overlay = document.createElement('div');
     overlay.className = 'loading-overlay';
@@ -125,14 +124,6 @@ class MovieCatalogApp {
     }
   }
 
-  updateProgress(percent) {
-    const progressBar = document.querySelector('.progress-bar');
-    if (progressBar) {
-      progressBar.style.width = `${percent}%`;
-    }
-  }
-
-  // Event Binding
   bindEvents() {
     this.bindClickEvents();
     this.bindInputEvents();
@@ -142,7 +133,9 @@ class MovieCatalogApp {
   }
 
   bindKeyboardEvents() {
-    document.addEventListener('keydown', this.boundEscapeHandler);
+    const escapeHandler = this.handleEscapeKey.bind(this);
+    this.boundHandlers.set('escape', escapeHandler);
+    document.addEventListener('keydown', escapeHandler);
   }
 
   handleEscapeKey(e) {
@@ -155,7 +148,9 @@ class MovieCatalogApp {
   }
 
   bindClickEvents() {
-    document.addEventListener('click', this.boundClickHandler);
+    const globalClickHandler = this.handleGlobalClick.bind(this);
+    this.boundHandlers.set('globalClick', globalClickHandler);
+    document.addEventListener('click', globalClickHandler);
 
     const clickEvents = [
       ['#searchBtn', () => this.searchMovies()],
@@ -169,24 +164,31 @@ class MovieCatalogApp {
       ['#openFramerateLink', (e) => {
         e.preventDefault();
         window.electronAPI.openExternalUrl('https://framerate.live');
-      }]
+      }],
+      ['#clearCacheBtn', () => this.clearCache()]
     ];
 
     clickEvents.forEach(([selector, handler]) => {
       const element = document.querySelector(selector);
       if (element) {
-        element.addEventListener('click', handler);
+        const boundHandler = handler.bind(this);
+        this.boundHandlers.set(selector, boundHandler);
+        element.addEventListener('click', boundHandler);
       }
     });
 
-    ['#minimizeBtn', '#maximizeBtn', '#closeBtn'].forEach((selector, index) => {
+    const windowControls = [
+      ['#minimizeBtn', () => window.electronAPI.minimizeWindow()],
+      ['#maximizeBtn', () => window.electronAPI.toggleMaximizeWindow()],
+      ['#closeBtn', () => window.electronAPI.closeWindow()]
+    ];
+
+    windowControls.forEach(([selector, handler]) => {
       const element = document.querySelector(selector);
       if (element) {
-        element.addEventListener('click', [
-          () => window.electronAPI.minimizeWindow(),
-          () => window.electronAPI.toggleMaximizeWindow(),
-          () => window.electronAPI.closeWindow()
-        ][index]);
+        const boundHandler = handler.bind(this);
+        this.boundHandlers.set(selector, boundHandler);
+        element.addEventListener('click', boundHandler);
       }
     });
   }
@@ -212,24 +214,35 @@ class MovieCatalogApp {
   }
 
   bindInputEvents() {
-    document.querySelector('#movieTitle')?.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') this.searchMovies();
+    const inputEvents = [
+      ['#movieTitle', 'keypress', (e) => {
+        if (e.key === 'Enter') this.searchMovies();
+      }],
+      ['#kinopoiskId', 'input', (e) => this.validateIdInput(e)],
+      ['#yearFilter', 'input', (e) => this.validateYearInput(e)],
+      ['#blockAdsToggle', 'change', (e) => this.toggleBlockAds(e.target.checked)],
+      ['#autoStartToggle', 'change', (e) => this.toggleAutoStart(e.target.checked)],
+      ['#highQualityPostersToggle', 'change', (e) => this.toggleHighQualityPosters(e.target.checked)],
+      ['#useTmdbDescriptionsToggle', 'change', (e) => this.toggleUseTmdbDescriptions(e.target.checked)]
+    ];
+
+    inputEvents.forEach(([selector, event, handler]) => {
+      const element = document.querySelector(selector);
+      if (element) {
+        const boundHandler = handler.bind(this);
+        this.boundHandlers.set(selector + event, boundHandler);
+        element.addEventListener(event, boundHandler);
+      }
     });
-
-    document.querySelector('#kinopoiskId')?.addEventListener('input', (e) => this.validateIdInput(e));
-
-    document.querySelector('#yearFilter')?.addEventListener('input', (e) => this.validateYearInput(e));
 
     ['#typeFilter', '#qualityFilter', '#genreFilter'].forEach(selector => {
-      document.querySelector(selector)?.addEventListener('change', () => this.onFilterChange());
+      const element = document.querySelector(selector);
+      if (element) {
+        const boundHandler = () => this.onFilterChange();
+        this.boundHandlers.set(selector + 'change', boundHandler);
+        element.addEventListener('change', boundHandler);
+      }
     });
-
-    document.querySelector('#blockAdsToggle')?.addEventListener('change', 
-      (e) => this.toggleBlockAds(e.target.checked));
-    document.querySelector('#autoStartToggle')?.addEventListener('change', 
-      (e) => this.toggleAutoStart(e.target.checked));
-    document.querySelector('#highQualityPostersToggle')?.addEventListener('change', 
-      (e) => this.toggleHighQualityPosters(e.target.checked));
   }
 
   validateYearInput(e) {
@@ -249,24 +262,32 @@ class MovieCatalogApp {
   }
 
   bindWindowEvents() {
-    window.electronAPI.onWindowMaximized(() => {
+    const maximizedHandler = () => {
       document.querySelector('#maximizeBtn')?.classList.add('maximized');
-    });
-    window.electronAPI.onWindowUnmaximized(() => {
+    };
+    
+    const unmaximizedHandler = () => {
       document.querySelector('#maximizeBtn')?.classList.remove('maximized');
-    });
+    };
+
+    this.boundHandlers.set('maximized', maximizedHandler);
+    this.boundHandlers.set('unmaximized', unmaximizedHandler);
+
+    window.electronAPI.onWindowMaximized(maximizedHandler);
+    window.electronAPI.onWindowUnmaximized(unmaximizedHandler);
   }
 
   bindSelectEvents() {
     document.querySelectorAll('select').forEach(select => {
-      select.addEventListener('change', function() {
+      const handler = function() {
         this.classList.toggle('has-value', !!this.value);
-      });
+      };
+      this.boundHandlers.set(select.id + 'change', handler);
+      select.addEventListener('change', handler);
       if (select.value) select.classList.add('has-value');
     });
   }
 
-  // Movie Management
   async handleMovieClick(kinopoiskId) {
     if (!this.isValidKinopoiskId(kinopoiskId)) {
       this.showError('Этот фильм недоступен для просмотра (отсутствует ID Кинопоиска)');
@@ -310,7 +331,6 @@ class MovieCatalogApp {
     return id && id !== 'null' && id !== '';
   }
 
-  // Settings Management
   async loadSettings() {
     try {
       this.state.settings = await window.electronAPI.getSettings();
@@ -325,6 +345,7 @@ class MovieCatalogApp {
     document.querySelector('#blockAdsToggle').checked = settings.blockAds;
     document.querySelector('#autoStartToggle').checked = settings.autoStart;
     document.querySelector('#highQualityPostersToggle').checked = settings.highQualityPosters;
+    document.querySelector('#useTmdbDescriptionsToggle').checked = settings.useTmdbDescriptions;
   }
 
   async toggleBlockAds(enabled) {
@@ -350,24 +371,50 @@ class MovieCatalogApp {
   }
 
   async toggleHighQualityPosters(enabled) {
-  try {
-    await window.electronAPI.setHighQualityPosters(enabled);
-    this.state.settings.highQualityPosters = enabled;
-    
-    this.state.posterCache.clear();
-    
-    this.showToast(enabled ? 'Качественные постеры включены' : 'Качественные постеры выключены');
-    
-    if (this.state.currentMovies.length > 0) {
-      this.displayMovies(this.state.currentMovies);
+    try {
+      await window.electronAPI.setHighQualityPosters(enabled);
+      this.state.settings.highQualityPosters = enabled;
+      this.showToast(enabled ? 'Качественные постеры включены' : 'Качественные постеры выключены');
+      
+      if (this.state.currentMovies.length > 0) {
+        await this.loadMoviePosters(this.state.currentMovies);
+      }
+      
+      if (this.state.currentMovie && enabled) {
+        await this.loadHighQualityMoviePoster();
+      }
+    } catch (error) {
+      document.querySelector('#highQualityPostersToggle').checked = !enabled;
+      this.showError('Ошибка сохранения настроек постеров');
     }
-  } catch (error) {
-    document.querySelector('#highQualityPostersToggle').checked = !enabled;
-    this.showError('Ошибка сохранения настроек постеров');
   }
-}
 
-  // Search and Filter
+  async toggleUseTmdbDescriptions(enabled) {
+    try {
+      await window.electronAPI.setUseTmdbDescriptions(enabled);
+      this.state.settings.useTmdbDescriptions = enabled;
+      
+      this.showToast(enabled ? 'Описания с TMDB включены' : 'Описания с TMDB выключены');
+      
+      if (this.state.currentMovie && this.state.settings.useTmdbDescriptions) {
+        this.loadEnhancedDescription();
+      }
+    } catch (error) {
+      document.querySelector('#useTmdbDescriptionsToggle').checked = !enabled;
+      this.showError('Ошибка сохранения настроек описаний');
+    }
+  }
+
+  async clearCache() {
+    try {
+      await window.electronAPI.clearCache();
+      this.imageCache.clear();
+      this.showToast('Кэш очищен');
+    } catch (error) {
+      this.showError('Ошибка очистки кэша');
+    }
+  }
+
   onFilterChange() {
     if (this.state.isSearching) {
       this.searchMovies();
@@ -446,7 +493,6 @@ class MovieCatalogApp {
     }
   }
 
-  // Data Handling
   handleApiResponse(response, page) {
     if (!response.success) {
       this.showError(`Ошибка: ${response.error}`);
@@ -462,6 +508,10 @@ class MovieCatalogApp {
     this.displayMovies(this.state.currentMovies);
     this.updatePagination();
     this.updateStats();
+
+    if (this.state.settings.highQualityPosters) {
+      this.loadMoviePosters(this.state.currentMovies);
+    }
   }
 
   showSkeletonLoading() {
@@ -484,22 +534,17 @@ class MovieCatalogApp {
     container.innerHTML = skeletonHTML;
   }
 
-  async displayMovies(movies) {
+  displayMovies(movies) {
     const container = document.querySelector('#moviesContainer');
     if (!container) return;
 
     if (movies?.length) {
       container.innerHTML = movies.map(movie => this.createMovieCard(movie)).join('');
-      
-      if (this.state.settings.highQualityPosters) {
-        await this.loadHighQualityPosters(movies);
-      }
     } else {
       this.displayEmptyState();
     }
   }
 
-  // Movie Card Creation
   createMovieCard(movie) {
     const hasPoster = movie.poster && movie.poster !== 'null';
     const posterSrc = hasPoster ? movie.poster : '';
@@ -544,23 +589,12 @@ class MovieCatalogApp {
     `;
   }
 
-  // Poster Management
-  async loadHighQualityPosters(movies) {
-    this.showPostersLoading();
-    
+  async loadMoviePosters(movies) {
+    if (!this.state.settings.highQualityPosters) return;
+
     const posterPromises = movies.map(async (movie, index) => {
       if (!movie.kinopoisk_id) return;
 
-      const cacheKey = `${movie.kinopoisk_id}_${movie.type || 'movie'}`;
-      
-      if (this.state.posterCache.has(cacheKey)) {
-        const cachedPoster = this.state.posterCache.get(cacheKey);
-        if (cachedPoster) this.updateMoviePoster(index, cachedPoster);
-        return;
-      }
-
-      const originalPoster = movie.poster && movie.poster !== 'null' ? movie.poster : null;
-      
       try {
         const mediaType = this.constants.TMDB_MEDIA_TYPES[movie.type] || 'movie';
         const response = await window.electronAPI.getTmdbPoster({
@@ -570,49 +604,43 @@ class MovieCatalogApp {
 
         if (response.success && response.data.posterUrl) {
           await this.preloadImage(response.data.posterUrl);
-          this.state.posterCache.set(cacheKey, response.data.posterUrl);
           this.updateMoviePoster(index, response.data.posterUrl);
-        } else {
-          this.state.posterCache.set(cacheKey, originalPoster);
         }
       } catch (error) {
-        console.warn(`TMDB poster failed for ${movie.kinopoisk_id}, using original`);
-        this.state.posterCache.set(cacheKey, originalPoster);
+        console.warn(`TMDB poster failed for ${movie.kinopoisk_id}:`, error);
       }
     });
 
     await Promise.allSettled(posterPromises);
-    this.cleanupPosterCache();
-    this.hidePostersLoading();
   }
 
-  cleanupPosterCache() {
-    if (this.state.posterCache.size > 50) {
-      const entries = Array.from(this.state.posterCache.entries());
-      this.state.posterCache = new Map(entries.slice(-50));
+  async loadHighQualityMoviePoster() {
+    if (!this.state.currentMovie?.kinopoisk_id || !this.state.settings.highQualityPosters) {
+      return;
+    }
+
+    try {
+      const mediaType = this.constants.TMDB_MEDIA_TYPES[this.state.currentMovie.type] || 'movie';
+      const response = await window.electronAPI.getTmdbPoster({
+        kinopoiskId: this.state.currentMovie.kinopoisk_id,
+        mediaType: mediaType
+      });
+
+      if (response.success && response.data.posterUrl) {
+        await this.preloadImage(response.data.posterUrl);
+        this.updateCurrentMoviePoster(response.data.posterUrl);
+      }
+    } catch (error) {
+      console.warn('Failed to load high quality movie poster:', error);
     }
   }
 
-  preloadImage(url, retries = 2) {
+  preloadImage(url) {
     return new Promise((resolve, reject) => {
       const img = new Image();
-      let attempts = 0;
-      
-      const attemptLoad = () => {
-        attempts++;
-        img.onload = () => resolve(url);
-        img.onerror = () => {
-          if (attempts < retries) {
-            setTimeout(attemptLoad, 1000 * attempts);
-          } else {
-            reject(new Error('Failed to load image after retries'));
-          }
-        };
-        img.src = url + (attempts > 1 ? `?retry=${attempts}` : '');
-      };
-      
-      attemptLoad();
-      setTimeout(() => reject(new Error('Image load timeout')), 10000);
+      img.onload = () => resolve(url);
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = url;
     });
   }
 
@@ -644,16 +672,65 @@ class MovieCatalogApp {
     }
   }
 
-  showPostersLoading() {
-    document.querySelectorAll('.movie-poster').forEach(poster => {
-      poster.classList.add('poster-loading');
-    });
+  updateCurrentMoviePoster(posterUrl) {
+    if (!posterUrl) return;
+
+    const posterImg = document.querySelector('#posterImage');
+    if (!posterImg) return;
+
+    posterImg.style.opacity = '0';
+    posterImg.style.transition = 'opacity 0.3s ease';
+    
+    setTimeout(() => {
+      posterImg.src = posterUrl;
+      posterImg.style.display = 'block';
+      
+      setTimeout(() => {
+        posterImg.style.opacity = '1';
+      }, 50);
+    }, 100);
   }
 
-  hidePostersLoading() {
-    document.querySelectorAll('.movie-poster').forEach(poster => {
-      poster.classList.remove('poster-loading');
-    });
+  async loadEnhancedDescription() {
+    if (!this.state.currentMovie?.kinopoisk_id || 
+        !this.state.settings.useTmdbDescriptions) {
+      return;
+    }
+
+    try {
+      const mediaType = this.constants.TMDB_MEDIA_TYPES[this.state.currentMovie.type] || 'movie';
+      const response = await window.electronAPI.getTmdbDescription({
+        kinopoiskId: this.state.currentMovie.kinopoisk_id,
+        mediaType: mediaType
+      });
+
+      if (response.success && response.data.description) {
+        this.updateMovieDescription(response.data.description, 'tmdb');
+      }
+    } catch (error) {
+      console.warn('Failed to load TMDB description:', error);
+    }
+  }
+
+  updateMovieDescription(description, source) {
+    const descriptionElement = document.querySelector('#moviePlayerDescription');
+    const sourceElement = document.querySelector('#descriptionSource');
+    
+    if (descriptionElement) {
+      descriptionElement.style.opacity = '0.7';
+      setTimeout(() => {
+        descriptionElement.textContent = description;
+        descriptionElement.style.opacity = '1';
+      }, 300);
+    }
+
+    if (sourceElement) {
+      if (source === 'tmdb') {
+        sourceElement.style.display = 'inline';
+      } else {
+        sourceElement.style.display = 'none';
+      }
+    }
   }
 
   async populateMovieScreen() {
@@ -662,53 +739,16 @@ class MovieCatalogApp {
     this.showMovieScreen();
     this.hidePartsSection();
 
-    if (this.state.settings.highQualityPosters && this.state.currentMovie?.kinopoisk_id) {
+    if (this.state.settings.highQualityPosters) {
       await this.loadHighQualityMoviePoster();
+    }
+
+    if (this.state.settings.useTmdbDescriptions) {
+      this.loadEnhancedDescription();
     }
 
     if (this.state.currentMovie?.parts && this.state.currentMovie.parts.length > 1) {
       await this.loadPartsSection(this.state.currentMovie.parts);
-    }
-  }
-
-  async loadHighQualityMoviePoster() {
-    const movie = this.state.currentMovie;
-    if (!movie?.kinopoisk_id) return;
-
-    const cacheKey = `${movie.kinopoisk_id}_${movie.type || 'movie'}`;
-    
-    try {
-      let posterUrl = null;
-      
-      if (this.state.posterCache.has(cacheKey)) {
-        posterUrl = this.state.posterCache.get(cacheKey);
-      } else {
-        const mediaType = this.constants.TMDB_MEDIA_TYPES[movie.type] || 'movie';
-        const response = await window.electronAPI.getTmdbPoster({
-          kinopoiskId: movie.kinopoisk_id,
-          mediaType: mediaType
-        });
-
-        if (response.success && response.data.posterUrl) {
-          await this.preloadImage(response.data.posterUrl);
-          posterUrl = response.data.posterUrl;
-          this.state.posterCache.set(cacheKey, posterUrl);
-        }
-      }
-
-      if (posterUrl) {
-        const posterImg = document.querySelector('#posterImage');
-        if (posterImg) {
-          posterImg.style.opacity = '0';
-          posterImg.src = posterUrl;
-          posterImg.style.display = 'block';
-          setTimeout(() => {
-            posterImg.style.opacity = '1';
-          }, 100);
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to load high quality movie poster:', error);
     }
   }
 
@@ -846,7 +886,6 @@ class MovieCatalogApp {
     }
   }
 
-  // UI Navigation
   showMovieScreen() {
     const altPlayer = document.querySelector('#alternativeVideoPlayer');
     if (altPlayer) {
@@ -913,6 +952,11 @@ class MovieCatalogApp {
     const categoryTags = document.querySelector('#categoryTags');
     if (categoryTags) {
       categoryTags.innerHTML = movie.rate_mpaa ? `<span class="category-tag">${movie.rate_mpaa}</span>` : '';
+    }
+
+    const sourceElement = document.querySelector('#descriptionSource');
+    if (sourceElement) {
+      sourceElement.style.display = 'none';
     }
   }
 
@@ -1061,15 +1105,31 @@ class MovieCatalogApp {
   }
 
   destroy() {
-    this.state.posterCache.clear();
-    
-    document.removeEventListener('keydown', this.boundEscapeHandler);
-    document.removeEventListener('click', this.boundClickHandler);
-    
+    for (const [key, handler] of this.boundHandlers.entries()) {
+      if (key === 'escape') {
+        document.removeEventListener('keydown', handler);
+      } else if (key === 'globalClick') {
+        document.removeEventListener('click', handler);
+      } else if (key.startsWith('#')) {
+        const [selector, event] = key.includes('change') ? 
+          [key.split('change')[0], 'change'] : 
+          [key, 'click'];
+        const element = document.querySelector(selector);
+        if (element) {
+          element.removeEventListener(event, handler);
+        }
+      }
+    }
+    this.boundHandlers.clear();
+
     const overlay = document.querySelector('.loading-overlay');
     const progressBar = document.querySelector('.progress-bar');
     if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
     if (progressBar && progressBar.parentNode) progressBar.parentNode.removeChild(progressBar);
+
+    this.state.currentMovies = [];
+    this.state.currentMovie = null;
+    this.imageCache.clear();
   }
 }
 
