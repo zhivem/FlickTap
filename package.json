@@ -1,6 +1,6 @@
 {
   "name": "movie-search-app",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Приложение для поиска и просмотра фильмов",
   "main": "main.js",
   "type": "module",
@@ -60,7 +60,7 @@
     "forceCodeSigning": false
   },
   "devDependencies": {
-    "electron": "^39.1.1",
+    "electron": "^39.1.2",
     "electron-builder": "^26.0.12"
   },
   "dependencies": {

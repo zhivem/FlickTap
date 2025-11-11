@@ -1,22 +1,37 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+const createApiMethod = (methodName) => (...args) => ipcRenderer.invoke(methodName, ...args);
+
 const electronAPI = {
-  getMovieList: (params) => ipcRenderer.invoke('get-movie-list', params),
-  getMovieDetails: (params) => ipcRenderer.invoke('get-movie-details', params),
-  getKinopoiskRatings: (kinopoiskId) => ipcRenderer.invoke('get-kinopoisk-ratings', kinopoiskId),
-  getTmdbPoster: (params) => ipcRenderer.invoke('get-tmdb-poster', params),
-  openExternalUrl: (url) => ipcRenderer.invoke('open-external-url', url),
-  getSettings: () => ipcRenderer.invoke('get-settings'),
-  setBlockAds: (enabled) => ipcRenderer.invoke('set-block-ads', enabled),
-  setAutoStart: (enabled) => ipcRenderer.invoke('set-auto-start', enabled),
-  setHighQualityPosters: (enabled) => ipcRenderer.invoke('set-high-quality-posters', enabled),
-  minimizeWindow: () => ipcRenderer.invoke('window-minimize'),
-  toggleMaximizeWindow: () => ipcRenderer.invoke('window-maximize'),
-  closeWindow: () => ipcRenderer.invoke('window-close'),
+  minimizeWindow: createApiMethod('window-minimize'),
+  toggleMaximizeWindow: createApiMethod('window-maximize'),
+  closeWindow: createApiMethod('window-close'),
+  
+  getMovieList: createApiMethod('get-movie-list'),
+  getMovieDetails: createApiMethod('get-movie-details'),
+  getKinopoiskRatings: createApiMethod('get-kinopoisk-ratings'),
+  getTmdbPoster: createApiMethod('get-tmdb-poster'),
+  
+  openExternalUrl: createApiMethod('open-external-url'),
+  
+  getSettings: createApiMethod('get-settings'),
+  setBlockAds: createApiMethod('set-block-ads'),
+  setAutoStart: createApiMethod('set-auto-start'),
+  setHighQualityPosters: createApiMethod('set-high-quality-posters'),
+  
   onWindowMaximized: (callback) => ipcRenderer.on('window-maximized', callback),
   onWindowUnmaximized: (callback) => ipcRenderer.on('window-unmaximized', callback),
   removeWindowMaximizedListener: (callback) => ipcRenderer.removeListener('window-maximized', callback),
   removeWindowUnmaximizedListener: (callback) => ipcRenderer.removeListener('window-unmaximized', callback),
+  
+  removeAllListeners: () => {
+    ipcRenderer.removeAllListeners('window-maximized');
+    ipcRenderer.removeAllListeners('window-unmaximized');
+  }
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);
+
+window.addEventListener('beforeunload', () => {
+  electronAPI.removeAllListeners();
+});

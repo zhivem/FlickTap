@@ -62,14 +62,53 @@
                 <option value="1">HD (720p)</option>
                 <option value="3">SD</option>
                 <option value="2">TS</option>
-                <option value="0">Не указано</option>
               </select>
             </div>
             <div class="input-group">
-              <label for="yearFilter">Год:</label>
-              <input type="number" id="yearFilter" placeholder="2024" min="1900" max="2030">
-            </div>
+            <label for="yearFilter">Год:</label>
+            <input type="text" id="yearFilter" placeholder="2024" inputmode="numeric" pattern="[0-9]*">
           </div>
+          </div>
+          <div class="input-group">
+          <label for="genreFilter">Жанр:</label>
+          <select id="genreFilter">
+            <option value="">Все жанры</option>
+            <option value="6">Фэнтези</option>
+            <option value="7">Драма</option>
+            <option value="8">Мелодрама</option>
+            <option value="9">Приключения</option>
+            <option value="10">Зарубежный</option>
+            <option value="11">Фантастика</option>
+            <option value="13">Триллер</option>
+            <option value="17">Боевик</option>
+            <option value="19">Комедия</option>
+            <option value="22">Русский</option>
+            <option value="23">Спортивный</option>
+            <option value="24">Детектив</option>
+            <option value="25">Криминал</option>
+            <option value="26">Ужасы</option>
+            <option value="27">Биографический</option>
+            <option value="28">Исторический</option>
+            <option value="29">Вестерн</option>
+            <option value="32">Военный</option>
+            <option value="33">Семейный</option>
+            <option value="34">Полнометражный</option>
+            <option value="36">Мистический</option>
+            <option value="37">Детский</option>
+            <option value="38">Мюзикл</option>
+            <option value="39">Арт-хаус</option>
+            <option value="41">Блокбастер</option>
+            <option value="53">Короткометражный</option>
+            <option value="54">Документальный</option>
+            <option value="55">Эротика</option>
+            <option value="72">Развлекательный</option>
+            <option value="106">Путешествия</option>
+            <option value="107">Ток-шоу</option>
+            <option value="108">Реальное ТВ</option>
+            <option value="109">Музыка</option>
+            <option value="110">Sci-Fi</option>
+          </select>
+        </div>
           <div class="control-buttons">
             <button id="searchBtn" class="btn primary"><span class="btn-text">Найти</span> <span class="btn-loading" style="display:none">Поиск...</span></button>
             <button id="clearBtn" class="btn secondary">Очистить</button>
@@ -217,7 +256,7 @@
       </label>
       
       <div class="app-info-section">
-        <div class="info-item"><strong>Версия приложения</strong> <span>1.0</span></div>
+        <div class="info-item"><strong>Версия приложения</strong> <span>1.0.1</span></div>
         <div class="info-item"><strong>Автор</strong> <span>Ярослав [Zhivem]</span></div>
       </div>
       <div class="modal-hint">Закрытие: клавиша Esc</div>
