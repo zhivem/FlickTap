@@ -1,7 +1,3 @@
-/**
- * Movie Catalog App - Renderer Process Controller.
- * Manages UI state, API calls via Electron API, and user interactions.
- */
 class MovieCatalogApp {
   constructor() {
     this.state = {
@@ -9,24 +5,25 @@ class MovieCatalogApp {
       currentPage: 1,
       totalPages: 1,
       totalMovies: 0,
-      settings: { blockAds: true },
+      settings: { 
+        blockAds: true, 
+        autoStart: false,
+        highQualityPosters: false 
+      },
       isSearching: false,
       searchParams: {},
       currentMovie: null,
-      currentPlayer: 'main'
+      currentPlayer: 'main',
+      posterCache: new Map() 
     };
-    this.cache = new Map();
     this.playerConfig = {
-      token: 'KEY',
+      token: 'API',
       width: '100%',
       height: '100%'
     };
     this.init();
   }
 
-  /**
-   * Initializes the app: binds events, loads settings, and fetches initial data.
-   */
   async init() {
     this.createLoadingOverlay();
     this.bindEvents();
@@ -34,9 +31,6 @@ class MovieCatalogApp {
     await this.loadMovies();
   }
 
-  /**
-   * Creates global loading overlay and progress bar.
-   */
   createLoadingOverlay() {
     const overlay = document.createElement('div');
     overlay.className = 'loading-overlay';
@@ -53,11 +47,6 @@ class MovieCatalogApp {
     document.body.appendChild(progressBar);
   }
 
-  /**
-   * Shows/hides global loading overlay with optional text.
-   * @param {boolean} show - Whether to show the overlay.
-   * @param {string} text - Loading text.
-   */
   showGlobalLoading(show = true, text = 'Загрузка...') {
     const overlay = document.querySelector('.loading-overlay');
     const progressBar = document.querySelector('.progress-bar');
@@ -76,10 +65,6 @@ class MovieCatalogApp {
     }
   }
 
-  /**
-   * Updates progress bar percentage.
-   * @param {number} percent - Progress from 0 to 100.
-   */
   updateProgress(percent) {
     const progressBar = document.querySelector('.progress-bar');
     if (progressBar) {
@@ -87,10 +72,33 @@ class MovieCatalogApp {
     }
   }
 
-  /**
-   * Binds all event listeners for UI elements.
-   */
   bindEvents() {
+    document.addEventListener('click', (e) => {
+      const movieCard = e.target.closest('.movie-card');
+      if (movieCard) {
+        const kinopoiskId = movieCard.dataset.kinopoiskId;
+        if (kinopoiskId) this.handleMovieClick(kinopoiskId);
+        return;
+      }
+
+      const partItem = e.target.closest('.part-item');
+      if (partItem) {
+        const partId = partItem.dataset.id;
+        if (partId) this.handlePartClick(partId);
+        return;
+      }
+
+      if (e.target.classList.contains('modal')) {
+        e.target.classList.remove('active');
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.querySelector('.modal.active')?.classList.remove('active');
+      }
+    });
+
     const eventMap = [
       ['#searchBtn', 'click', () => this.searchMovies()],
       ['#clearBtn', 'click', () => this.clearSearch()],
@@ -104,6 +112,8 @@ class MovieCatalogApp {
       ['#player2Btn', 'click', () => this.switchPlayer('alternative')],
       ['#settingsBtn', 'click', () => this.showModal('#settingsModal')],
       ['#blockAdsToggle', 'change', (e) => this.toggleBlockAds(e.target.checked)],
+      ['#autoStartToggle', 'change', (e) => this.toggleAutoStart(e.target.checked)],
+      ['#highQualityPostersToggle', 'change', (e) => this.toggleHighQualityPosters(e.target.checked)],
       ['#openFramerateLink', 'click', (e) => {
         e.preventDefault();
         window.electronAPI.openExternalUrl('https://framerate.live');
@@ -114,20 +124,6 @@ class MovieCatalogApp {
       document.querySelector(selector)?.addEventListener(event, handler);
     });
 
-    // Global events
-    document.addEventListener('click', (e) => {
-      if (e.target.classList.contains('modal')) {
-        e.target.classList.remove('active');
-      }
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        document.querySelector('.modal.active')?.classList.remove('active');
-      }
-    });
-
-    // Window controls
     ['#minimizeBtn', '#maximizeBtn', '#closeBtn'].forEach((selector, index) => {
       document.querySelector(selector)?.addEventListener('click', [
         () => window.electronAPI.minimizeWindow(),
@@ -136,7 +132,6 @@ class MovieCatalogApp {
       ][index]);
     });
 
-    // Window state listeners
     window.electronAPI.onWindowMaximized(() => {
       document.querySelector('#maximizeBtn')?.classList.add('maximized');
     });
@@ -145,22 +140,63 @@ class MovieCatalogApp {
     });
   }
 
-  /**
-   * Loads app settings from Electron store.
-   */
+  async handleMovieClick(kinopoiskId) {
+    this.showGlobalLoading(true, 'Загрузка фильма...');
+    try {
+      const response = await window.electronAPI.getMovieDetails({ kinopoisk_id: kinopoiskId });
+      if (response.success) {
+        this.state.currentMovie = response.data;
+        await this.populateMovieScreen();
+      } else {
+        this.showError('Не удалось загрузить детали фильма');
+      }
+    } catch (error) {
+      this.showError(`Ошибка: ${error.message}`);
+    } finally {
+      this.showGlobalLoading(false);
+    }
+  }
+
+  async handlePartClick(partId) {
+    this.showGlobalLoading(true, 'Загрузка части франшизы...');
+    try {
+      const response = await window.electronAPI.getMovieDetails({ id: partId });
+      if (response.success) {
+        this.state.currentMovie = response.data;
+        await this.populateMovieScreen();
+      } else {
+        this.showError('Не удалось загрузить часть франшизы');
+      }
+    } catch (error) {
+      this.showError(`Ошибка: ${error.message}`);
+    } finally {
+      this.showGlobalLoading(false);
+    }
+  }
+
   async loadSettings() {
     try {
       this.state.settings = await window.electronAPI.getSettings();
       document.querySelector('#blockAdsToggle').checked = this.state.settings.blockAds;
+      document.querySelector('#autoStartToggle').checked = this.state.settings.autoStart;
+      document.querySelector('#highQualityPostersToggle').checked = this.state.settings.highQualityPosters;
     } catch (error) {
-      console.error('Failed to load settings:', error);
+      this.showError('Не удалось загрузить настройки');
     }
   }
 
-  /**
-   * Toggles ad blocking and updates settings.
-   * @param {boolean} enabled - Whether to enable ad blocking.
-   */
+  showPostersLoading() {
+    document.querySelectorAll('.movie-poster').forEach(poster => {
+      poster.classList.add('poster-loading');
+    });
+  }
+
+  hidePostersLoading() {
+    document.querySelectorAll('.movie-poster').forEach(poster => {
+      poster.classList.remove('poster-loading');
+    });
+  }
+
   async toggleBlockAds(enabled) {
     try {
       await window.electronAPI.setBlockAds(enabled);
@@ -169,31 +205,45 @@ class MovieCatalogApp {
     } catch (error) {
       document.querySelector('#blockAdsToggle').checked = !enabled;
       this.showError('Ошибка сохранения настроек');
-      console.error('Ad blocking toggle failed:', error);
     }
   }
 
-  /**
-   * Shows modal by selector.
-   * @param {string} selector - Modal selector.
-   */
+  async toggleAutoStart(enabled) {
+    try {
+      await window.electronAPI.setAutoStart(enabled);
+      this.state.settings.autoStart = enabled;
+      this.showToast(enabled ? 'Автозапуск включен' : 'Автозапуск выключен');
+    } catch (error) {
+      document.querySelector('#autoStartToggle').checked = !enabled;
+      this.showError('Ошибка сохранения настроек автозапуска');
+    }
+  }
+
+  async toggleHighQualityPosters(enabled) {
+    try {
+      await window.electronAPI.setHighQualityPosters(enabled);
+      this.state.settings.highQualityPosters = enabled;
+      this.showToast(enabled ? 'Качественные постеры включены' : 'Качественные постеры выключены');
+      
+      if (this.state.currentMovies.length > 0) {
+        this.displayMovies(this.state.currentMovies);
+      }
+    } catch (error) {
+      document.querySelector('#highQualityPostersToggle').checked = !enabled;
+      this.showError('Ошибка сохранения настроек постеров');
+    }
+  }
+
   showModal(selector) {
     document.querySelector(selector)?.classList.add('active');
   }
 
-  /**
-   * Handles filter changes during search.
-   */
   onFilterChange() {
     if (this.state.isSearching) {
       this.searchMovies();
     }
   }
 
-  /**
-   * Loads movies for a specific page.
-   * @param {number} page - Page number.
-   */
   async loadMovies(page = 1) {
     this.setLoading(true);
     this.showSkeletonLoading();
@@ -205,15 +255,11 @@ class MovieCatalogApp {
     } catch (error) {
       this.showError(`Ошибка: ${error.message}`);
       this.displayEmptyState();
-      console.error('Failed to load movies:', error);
     } finally {
       this.setLoading(false);
     }
   }
 
-  /**
-   * Shows skeleton loading placeholders in movies container.
-   */
   showSkeletonLoading() {
     const container = document.querySelector('#moviesContainer');
     if (!container) return;
@@ -234,9 +280,6 @@ class MovieCatalogApp {
     container.innerHTML = skeletonHTML;
   }
 
-  /**
-   * Performs search with current params.
-   */
   async searchMovies() {
     const params = this.getSearchParams();
     this.state.searchParams = params;
@@ -252,7 +295,6 @@ class MovieCatalogApp {
       } catch (error) {
         this.showError(`Ошибка: ${error.message}`);
         this.displayEmptyState();
-        console.error('Search failed:', error);
       } finally {
         this.setLoading(false);
       }
@@ -261,10 +303,6 @@ class MovieCatalogApp {
     }
   }
 
-  /**
-   * Extracts search parameters from form inputs.
-   * @returns {Object} Search params.
-   */
   getSearchParams() {
     const paramMap = {
       name: '#movieTitle',
@@ -285,11 +323,6 @@ class MovieCatalogApp {
     return params;
   }
 
-  /**
-   * Handles API response for movie list.
-   * @param {Object} response - API response.
-   * @param {number} page - Current page.
-   */
   handleApiResponse(response, page) {
     if (!response.success) {
       this.showError(`Ошибка: ${response.error}`);
@@ -297,8 +330,15 @@ class MovieCatalogApp {
       return;
     }
 
-    this.state.currentMovies = response.data.results || [];
-    this.state.totalMovies = response.data.total || 0;
+    const filteredMovies = response.data.results.filter(movie => 
+      movie.kinopoisk_id && 
+      movie.kinopoisk_id !== 'null' && 
+      movie.kinopoisk_id !== '' && 
+      !isNaN(movie.kinopoisk_id)
+    );
+
+    this.state.currentMovies = filteredMovies;
+    this.state.totalMovies = response.data.total || 0; 
     this.state.currentPage = page;
     this.state.totalPages = Math.ceil(this.state.totalMovies / 12) || 1;
 
@@ -307,261 +347,263 @@ class MovieCatalogApp {
     this.updateStats();
   }
 
-  /**
-   * Displays movies in the container.
-   * @param {Array} movies - Array of movies.
-   */
-  displayMovies(movies) {
+  async displayMovies(movies) {
     const container = document.querySelector('#moviesContainer');
     if (!container) return;
 
     if (movies?.length) {
       container.innerHTML = movies.map(movie => this.createMovieCard(movie)).join('');
-      this.bindMovieCardEvents();
+      
+      if (this.state.settings.highQualityPosters) {
+        await this.loadHighQualityPosters(movies);
+      }
     } else {
       this.displayEmptyState();
     }
   }
 
-  /**
-   * Creates HTML for a single movie card.
-   * @param {Object} movie - Movie data.
-   * @returns {string} HTML string.
-   */
+  async loadHighQualityPosters(movies) {
+    this.showPostersLoading();
+    
+    const posterPromises = movies.map(async (movie, index) => {
+      if (!movie.kinopoisk_id) return;
+
+      const cacheKey = `${movie.kinopoisk_id}_${movie.type || 'movie'}`;
+      
+      if (this.state.posterCache.has(cacheKey)) {
+        const cachedPoster = this.state.posterCache.get(cacheKey);
+        this.updateMoviePoster(index, cachedPoster);
+        return;
+      }
+
+      try {
+        const mediaType = this.determineTmdbMediaType(movie.type);
+        const response = await window.electronAPI.getTmdbPoster({
+          kinopoiskId: movie.kinopoisk_id,
+          mediaType: mediaType
+        });
+
+        if (response.success && response.data.posterUrl) {
+          this.state.posterCache.set(cacheKey, response.data.posterUrl);
+          this.updateMoviePoster(index, response.data.posterUrl);
+        } else {
+          this.state.posterCache.set(cacheKey, null);
+        }
+      } catch (error) {
+        this.state.posterCache.set(cacheKey, null);
+      }
+    });
+
+    await Promise.allSettled(posterPromises);
+    this.hidePostersLoading();
+  }
+
+  updateMoviePoster(index, posterUrl) {
+    if (!posterUrl) return;
+
+    const movieCard = document.querySelectorAll('.movie-card')[index];
+    if (!movieCard) return;
+
+    const posterImg = movieCard.querySelector('.movie-poster img');
+    const placeholder = movieCard.querySelector('.poster-placeholder');
+    
+    if (posterImg) {
+      posterImg.src = posterUrl;
+      posterImg.style.display = 'block';
+    }
+    
+    if (placeholder) {
+      placeholder.style.display = 'none';
+    }
+  }
+
+  determineTmdbMediaType(apiType) {
+    const typeMap = {
+      'film': 'movie',
+      'series': 'tv',
+      'cartoon': 'movie',
+      'cartoon-serials': 'tv',
+      'show': 'tv',
+      'anime': 'movie',
+      'anime-serials': 'tv',
+      'tv-show': 'tv',
+      'anime-film': 'movie',
+      'cartoon-series': 'tv',
+      'anime-series': 'tv'
+    };
+    return typeMap[apiType] || 'movie';
+  }
+
   createMovieCard(movie) {
     const hasPoster = movie.poster && movie.poster !== 'null';
-    const kpRating = this.formatRating(movie.kinopoisk);
-    const imdbRating = this.formatRating(movie.imdb);
-    const metaTags = [
-      movie.year && `<span class="movie-year-tag">${movie.year}</span>`,
-      kpRating && `<span class="rating-kp-tag">КП: ${kpRating}</span>`,
-      imdbRating && `<span class="rating-imdb-tag">IMDb: ${imdbRating}</span>`,
-      this.getTypeLabel(movie.type) && `<span class="movie-type-tag">${this.getTypeLabel(movie.type)}</span>`,
-      this.getQualityLabel(movie.quality) && `<span class="movie-quality-tag">${this.getQualityLabel(movie.quality)}</span>`
-    ].filter(Boolean).join('');
+    const posterSrc = hasPoster ? movie.poster : '';
+    const posterPlaceholder = !hasPoster ? '<div class="poster-placeholder">Нет постера</div>' : '';
+
+    const yearTag = movie.year ? `<span class="movie-year-tag">${movie.year}</span>` : '';
+    const kpTag = movie.kinopoisk ? `<span class="rating-kp-tag">КП ${this.formatRating(movie.kinopoisk)}</span>` : '';
+    const imdbTag = movie.imdb ? `<span class="rating-imdb-tag">IMDb ${this.formatRating(movie.imdb)}</span>` : '';
+    const typeTag = movie.type ? `<span class="movie-type-tag">${this.getTypeLabel(movie.type)}</span>` : '';
+    const qualityTag = movie.quality ? `<span class="movie-quality-tag">${this.getQualityLabel(movie.quality)}</span>` : '';
 
     return `
-      <div class="movie-card" data-movie-id="${movie.id}" data-kinopoisk-id="${movie.kinopoisk_id}">
+      <div class="movie-card" data-kinopoisk-id="${movie.kinopoisk_id}" data-id="${movie.id}">
         <div class="movie-poster">
-          ${hasPoster ? 
-            `<img src="${movie.poster}" alt="${movie.name}" loading="lazy" 
-                  onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-             <div class="poster-placeholder" style="display:none;">Movie</div>` : 
-            '<div class="poster-placeholder">Movie</div>'
-          }
+          ${posterPlaceholder}
+          <img src="${posterSrc}" alt="${movie.name || movie.name_eng}" loading="lazy" style="display: ${hasPoster ? 'block' : 'none'};">
         </div>
         <div class="movie-info">
-          <div class="movie-title">${movie.name || '—'}</div>
-          <div class="movie-meta-row">${metaTags}</div>
-          ${movie.name_eng ? `<div class="movie-title-en">${movie.name_eng}</div>` : ''} <!-- Условный рендер, чтобы не было пустого div; fallback на "" в CSS -->
+          <div class="movie-title">${movie.name || movie.name_eng || 'Неизвестно'}</div>
+          ${movie.name && movie.name !== movie.name_eng ? `<div class="movie-title-en">${movie.name_eng || ''}</div>` : ''}
+          <div class="movie-meta-row">
+            ${yearTag} ${kpTag} ${imdbTag} ${typeTag} ${qualityTag}
+          </div>
         </div>
       </div>
     `;
   }
 
-  /**
-   * Binds click events to movie cards.
-   */
-  bindMovieCardEvents() {
-    document.querySelectorAll('.movie-card').forEach(card => {
-      card.addEventListener('click', () => {
-        this.openMovie(card.dataset.movieId, card.dataset.kinopoiskId);
-      });
-    });
+  async populateMovieScreen() {
+    this.fillMovieInfo(this.state.currentMovie);
+    this.switchPlayer(this.state.currentPlayer);
+    this.showMovieScreen();
+    this.hidePartsSection();
+
+    if (this.state.settings.highQualityPosters && this.state.currentMovie?.kinopoisk_id) {
+      await this.loadHighQualityMoviePoster();
+    }
+
+    if (this.state.currentMovie?.parts && this.state.currentMovie.parts.length > 1) {
+      await this.loadPartsSection(this.state.currentMovie.parts);
+    }
   }
 
-  /**
-   * Displays empty state or placeholder.
-   */
-  displayEmptyState() {
-    const container = document.querySelector('#moviesContainer');
-    if (!container) return;
+  async loadHighQualityMoviePoster() {
+    const movie = this.state.currentMovie;
+    if (!movie?.kinopoisk_id) return;
 
-    const message = this.state.isSearching ? 'По вашему запросу ничего не найдено' : 'Загрузка фильмов...';
-    const icon = this.state.isSearching ? 'Поиск' : 'Ожидание';
+    const cacheKey = `${movie.kinopoisk_id}_${movie.type || 'movie'}`;
+    
+    try {
+      let posterUrl = null;
+      
+      if (this.state.posterCache.has(cacheKey)) {
+        posterUrl = this.state.posterCache.get(cacheKey);
+      } else {
+        const mediaType = this.determineTmdbMediaType(movie.type);
+        const response = await window.electronAPI.getTmdbPoster({
+          kinopoiskId: movie.kinopoisk_id,
+          mediaType: mediaType
+        });
 
-    container.innerHTML = `
-      <div class="placeholder">
-        <div class="placeholder-icon">${icon}</div>
-        <div class="placeholder-text">${message}</div>
-      </div>
-    `;
+        if (response.success && response.data.posterUrl) {
+          posterUrl = response.data.posterUrl;
+          this.state.posterCache.set(cacheKey, posterUrl);
+        }
+      }
+
+      if (posterUrl) {
+        const posterImg = document.querySelector('#posterImage');
+        if (posterImg) {
+          posterImg.src = posterUrl;
+          posterImg.style.display = 'block';
+        }
+      }
+    } catch (error) {
+      // Используем оригинальный постер при ошибке
+    }
   }
 
-  /**
-   * Opens movie details screen.
-   * @param {string} movieId - Movie ID.
-   * @param {string} kinopoiskId - Kinopoisk ID.
-   */
-  async openMovie(movieId, kinopoiskId) {
-    if (!movieId) {
-      this.showError('ID фильма отсутствует');
+  async loadPartsSection(parts) {
+    const currentId = this.state.currentMovie.id;
+    const otherParts = parts.filter(id => parseInt(id) !== parseInt(currentId));
+
+    if (otherParts.length === 0) {
+      this.hidePartsSection();
       return;
     }
 
-    this.showGlobalLoading(true, 'Загрузка информации о фильме...');
-    this.updateProgress(20);
-
-    this.showScreen('movieScreen');
-    this.updateTitle('Загрузка...', 'Получение данных о фильме');
+    this.showGlobalLoading(true, 'Загрузка частей франшизы...');
 
     try {
-      this.updateProgress(50);
-      // Note: Assuming getMovieDetails fetches full data; integrate kinopoisk ratings if needed
-      const response = await window.electronAPI.getMovieDetails({ id: movieId });
-      if (response.success) {
-        this.state.currentMovie = response.data;
-        this.fillMovieInfo(response.data);
-        this.updateProgress(80);
-        this.loadVideo(response.data);
-        this.updateProgress(100);
-      } else {
-        throw new Error(response.error);
+      const responses = await Promise.all(
+        otherParts.slice(0, 10).map(id => window.electronAPI.getMovieDetails({ id }))
+      );
+
+      const partsList = document.querySelector('#partsList');
+      if (!partsList) return;
+
+      const validParts = responses
+        .filter(resp => resp.success && resp.data)
+        .map(resp => resp.data)
+        .sort((a, b) => (a.year || 0) - (b.year || 0));
+
+      if (validParts.length === 0) {
+        this.hidePartsSection();
+        return;
+      }
+
+      partsList.innerHTML = validParts.map(part => `
+        <div class="part-item" data-id="${part.id}" data-kinopoisk-id="${part.kinopoisk_id}">
+          <span class="part-name">${part.name || part.name_eng || 'Неизвестно'}</span>
+          <span class="part-year">${part.year || '—'}</span>
+        </div>
+      `).join('');
+
+      const partsSection = document.querySelector('#partsSection');
+      if (partsSection) {
+        partsSection.style.display = 'block';
       }
     } catch (error) {
-      this.showError(`Ошибка загрузки фильма: ${error.message}`);
-      console.error('Movie load failed:', error);
-      this.showCatalog();
+      this.hidePartsSection();
     } finally {
       this.showGlobalLoading(false);
-      this.updateProgress(0);
     }
   }
 
-  /**
-   * Shows a specific screen.
-   * @param {string} screenId - Screen ID (catalogScreen or movieScreen).
-   */
-  showScreen(screenId) {
-    document.querySelectorAll('.screen').forEach(screen => {
-      screen.classList.toggle('active', screen.id === screenId);
-    });
-
-    // Show/hide back button
-    document.querySelector('#backBtn').style.display = screenId === 'movieScreen' ? 'block' : 'none';
+  showMovieScreen() {
+    document.querySelector('#catalogScreen')?.classList.remove('active');
+    document.querySelector('#movieScreen')?.classList.add('active');
+    document.querySelector('#backBtn')?.style.setProperty('display', 'block', 'important');
   }
 
-  /**
-   * Shows catalog screen and resets state.
-   */
   showCatalog() {
-    this.showScreen('catalogScreen');
-    this.updateTitle('Каталог фильмов', 'База фильмов и сериалов');
-    this.resetPlayers();
+    document.querySelector('#movieScreen')?.classList.remove('active');
+    document.querySelector('#catalogScreen')?.classList.add('active');
+    document.querySelector('#backBtn')?.style.setProperty('display', 'none', 'important');
     this.hidePartsSection();
   }
 
-  /**
-   * Updates page title and subtitle.
-   * @param {string} title - Main title.
-   * @param {string} subtitle - Subtitle.
-   */
-  updateTitle(title, subtitle) {
-    const mainTitle = document.querySelector('#mainTitle');
-    const mainSubtitle = document.querySelector('#mainSubtitle');
-    if (mainTitle) mainTitle.textContent = title;
-    if (mainSubtitle) mainSubtitle.textContent = subtitle;
-  }
-
-  /**
-   * Resets player states.
-   */
-  resetPlayers() {
-    const mainContainer = document.querySelector('#mainIframeContainer');
-    if (mainContainer) {
-      mainContainer.innerHTML = '<div id="mainIframe"></div>';
-    }
-
-    const mainLoading = document.querySelector('#mainPlayerLoading');
-    if (mainLoading) {
-      mainLoading.style.display = 'block';
-      mainLoading.textContent = 'Загрузка основного плеера...';
-      mainLoading.style.color = '';
-    }
-
-    // Reset alternative player
-    const altPlayer = document.querySelector('#alternativeVideoPlayer');
-    if (altPlayer) {
-      altPlayer.src = '';
-    }
-
-    const altLoading = document.querySelector('#altPlayerLoading');
-    if (altLoading) {
-      altLoading.style.display = 'block';
-      altLoading.textContent = 'Загрузка альтернативного плеера...';
-      altLoading.style.color = '';
-    }
-
-    this.switchPlayer('main');
-  }
-
-  /**
-   * Switches between players.
-   * @param {string} player - 'main' or 'alternative'.
-   */
-  switchPlayer(player) {
-    const playerMap = {
-      main: ['#player1Btn', '#mainPlayer'],
-      alternative: ['#player2Btn', '#alternativePlayer']
-    };
-
-    Object.entries(playerMap).forEach(([key, [btnSel, contSel]]) => {
-      const btn = document.querySelector(btnSel);
-      const container = document.querySelector(contSel);
-      if (btn && container) {
-        const isActive = key === player;
-        btn.classList.toggle('active', isActive);
-        container.classList.toggle('active', isActive);
-      }
-    });
-
-    this.state.currentPlayer = player;
-    if (player === 'alternative') {
-      this.loadAlternativePlayer();
-    }
-  }
-
-  /**
-   * Loads video in main player.
-   * @param {Object} movie - Movie data.
-   */
-  loadVideo(movie) {
-    if (this.state.currentPlayer !== 'main') return;
-
-    const container = document.querySelector('#mainIframeContainer');
-    const loading = document.querySelector('#mainPlayerLoading');
-
-    if (!container || !movie.kinopoisk_id) {
-      this.showError('Данные для загрузки плеера отсутствуют');
+  loadMainPlayer() {
+    if (!this.state.currentMovie?.kinopoisk_id) {
+      this.showError('Нет данных для загрузки основного плеера');
       return;
     }
 
-    loading.style.display = 'block';
-    loading.textContent = 'Загрузка основного плеера...';
+    const iframeContainer = document.querySelector('#mainIframeContainer');
+    const loading = document.querySelector('#mainPlayerLoading');
 
-    container.innerHTML = '<div id="mainIframe"></div>';
+    if (iframeContainer && loading) {
+      loading.style.display = 'block';
+      loading.textContent = 'Загрузка основного плеера...';
+      iframeContainer.innerHTML = '<div id="mainIframe"></div>';
 
-    setTimeout(() => {
-      try {
-        if (typeof addtoiframe === 'function') {
-          addtoiframe('mainIframe', movie.kinopoisk_id, this.playerConfig.width, this.playerConfig.height, this.playerConfig.token);
-          loading.style.display = 'none';
-          this.showToast('Основной плеер загружен');
-        } else {
-          loading.textContent = 'Ошибка: Плеер не загрузился';
+      setTimeout(() => {
+        try {
+          if (typeof addtoiframe === 'function') {
+            addtoiframe('mainIframe', this.state.currentMovie.kinopoisk_id, this.playerConfig.width, this.playerConfig.height, this.playerConfig.token);
+            loading.style.display = 'none';
+          } else {
+            loading.textContent = 'Ошибка: Скрипт плеера не загружен';
+            loading.style.color = '#e74c3c';
+          }
+        } catch (error) {
+          loading.textContent = `Ошибка: ${error.message}`;
           loading.style.color = '#e74c3c';
         }
-      } catch (error) {
-        loading.textContent = `Ошибка: ${error.message}`;
-        loading.style.color = '#e74c3c';
-        console.error('Main player load failed:', error);
-      }
-    }, 1000);
+      }, 1000);
+    }
   }
 
-  /**
-   * Loads alternative player.
-   */
   loadAlternativePlayer() {
     if (!this.state.currentMovie?.kinopoisk_id) {
       this.showError('Нет данных для загрузки альтернативного плеера');
@@ -587,7 +629,6 @@ class MovieCatalogApp {
 
           player.onload = () => {
             loading.style.display = 'none';
-            this.showToast('Альтернативный плеер загружен');
           };
 
           player.onerror = () => {
@@ -597,16 +638,27 @@ class MovieCatalogApp {
         } catch (error) {
           loading.textContent = `Ошибка: ${error.message}`;
           loading.style.color = '#e74c3c';
-          console.error('Alternative player load failed:', error);
         }
       }, 500);
     }
   }
 
-  /**
-   * Fills movie info into UI elements.
-   * @param {Object} movie - Movie data.
-   */
+  switchPlayer(player) {
+    this.state.currentPlayer = player;
+
+    document.querySelectorAll('.player-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`[data-player="${player}"]`)?.classList.add('active');
+
+    document.querySelectorAll('.player-container').forEach(cont => cont.classList.remove('active'));
+    document.querySelector(`#${player === 'main' ? 'mainPlayer' : 'alternativePlayer'}`)?.classList.add('active');
+
+    if (player === 'main') {
+      this.loadMainPlayer();
+    } else {
+      this.loadAlternativePlayer();
+    }
+  }
+
   fillMovieInfo(movie) {
     const infoMap = {
       moviePlayerTitle: movie.name || movie.name_eng || 'Неизвестно',
@@ -636,7 +688,6 @@ class MovieCatalogApp {
       if (element) element.textContent = value;
     });
 
-    // Poster
     const posterImg = document.querySelector('#posterImage');
     if (posterImg) {
       const hasPoster = movie.poster && movie.poster !== 'null';
@@ -644,29 +695,18 @@ class MovieCatalogApp {
       posterImg.style.display = hasPoster ? 'block' : 'none';
     }
 
-    // Categories
     const categoryTags = document.querySelector('#categoryTags');
     if (categoryTags) {
       categoryTags.innerHTML = movie.rate_mpaa ? `<span class="category-tag">${movie.rate_mpaa}</span>` : '';
     }
   }
 
-  /**
-   * Formats rating to 1 decimal place.
-   * @param {string|number} rating - Raw rating.
-   * @returns {string|null} Formatted rating.
-   */
   formatRating(rating) {
     if (!rating || rating === 'null') return null;
     const num = parseFloat(rating);
     return isNaN(num) ? null : num.toFixed(1);
   }
 
-  /**
-   * Gets quality label.
-   * @param {number} quality - Quality code.
-   * @returns {string} Label.
-   */
   getQualityLabel(quality) {
     const labels = {
       0: '—',
@@ -678,12 +718,21 @@ class MovieCatalogApp {
     return labels[quality] || quality || '—';
   }
 
-  /**
-   * Gets type label.
-   * @param {string} type 
-   * @returns {string} 
-   */
+  normalizeType(type) {
+    if (!type) return type;
+ 
+    const typeMap = {
+      'tv-show': 'show',
+      'anime-film': 'anime',
+      'cartoon-series': 'cartoon-serials',
+      'anime-series': 'anime-serials'
+    };
+ 
+    return typeMap[type] || type; 
+  }
+
   getTypeLabel(type) {
+    const normalizedType = this.normalizeType(type); 
     const labels = {
       film: 'Фильм',
       series: 'Сериал',
@@ -693,14 +742,9 @@ class MovieCatalogApp {
       anime: 'Аниме',
       'anime-serials': 'Аниме-сериал'
     };
-    return labels[type] || type || '—';
+    return labels[normalizedType] || normalizedType || '—';
   }
 
-  /**
-   * Formats money value.
-   * @param {string} value - Raw money string.
-   * @returns {string} Formatted currency.
-   */
   formatMoney(value) {
     if (!value || value === 'null' || typeof value !== 'string') return '—';
     const match = value.match(/[\d\s.,]+(?=\s*[$€₽]?)/g);
@@ -715,48 +759,30 @@ class MovieCatalogApp {
     }).format(num);
   }
 
-  /**
-   * Formats object values to comma-separated string.
-   * @param {Object} obj - Object with values.
-   * @returns {string} Formatted string.
-   */
   formatObject(obj) {
     if (!obj || typeof obj !== 'object') return '—';
     const values = Object.values(obj).filter(val => val && val !== 'null');
     return values.length ? values.join(', ') : '—';
   }
 
-  /**
-   * Goes to previous page.
-   */
   prevPage() {
     if (this.state.currentPage > 1) {
       this.loadPage(this.state.currentPage - 1);
     }
   }
 
-  /**
-   * Goes to next page.
-   */
   nextPage() {
     if (this.state.currentPage < this.state.totalPages) {
       this.loadPage(this.state.currentPage + 1);
     }
   }
 
-  /**
-   * Loads a specific page.
-   * @param {number} page - Page number.
-   */
   async loadPage(page) {
     const params = this.state.isSearching ? { ...this.state.searchParams, page, limit: 12 } : { page, limit: 12 };
     const response = await window.electronAPI.getMovieList(params);
     this.handleApiResponse(response, page);
   }
 
-  /**
-   * Updates pagination UI.
-   */
   updatePagination() {
     const prevBtn = document.querySelector('#prevPage');
     const nextBtn = document.querySelector('#nextPage');
@@ -767,9 +793,6 @@ class MovieCatalogApp {
     if (pageNum) pageNum.textContent = this.state.currentPage;
   }
 
-  /**
-   * Updates stats UI.
-   */
   updateStats() {
     const totalMoviesEl = document.querySelector('#totalMovies');
     const currentPageEl = document.querySelector('#currentPage');
@@ -778,10 +801,18 @@ class MovieCatalogApp {
     if (currentPageEl) currentPageEl.textContent = this.state.currentPage;
   }
 
-  /**
-   * Validates Kinopoisk ID input (numbers only).
-   * @param {Event} event - Input event.
-   */
+  displayEmptyState() {
+    const container = document.querySelector('#moviesContainer');
+    if (container) {
+      container.innerHTML = `
+        <div class="placeholder">
+          <div class="placeholder-icon">🎬</div>
+          <div class="placeholder-text">Фильмы не найдены. Попробуйте изменить поисковый запрос.</div>
+        </div>
+      `;
+    }
+  }
+
   validateIdInput(event) {
     const input = event.target;
     const validationEl = document.querySelector('#idValidation');
@@ -794,10 +825,6 @@ class MovieCatalogApp {
     validationEl.textContent = numericValue ? 'Ввод только цифр' : '';
   }
 
-  /**
-   * Sets loading state on search button.
-   * @param {boolean} loading - Loading state.
-   */
   setLoading(loading) {
     const btn = document.querySelector('#searchBtn');
     if (!btn) return;
@@ -809,9 +836,6 @@ class MovieCatalogApp {
     if (loadingSpan) loadingSpan.style.display = loading ? 'inline' : 'none';
   }
 
-  /**
-   * Clears search form and reloads.
-   */
   clearSearch() {
     ['#movieTitle', '#kinopoiskId', '#yearFilter'].forEach(selector => {
       document.querySelector(selector).value = '';
@@ -825,10 +849,6 @@ class MovieCatalogApp {
     this.loadMovies(1);
   }
 
-  /**
-   * Shows toast notification.
-   * @param {string} message - Message text.
-   */
   showToast(message) {
     const toast = document.createElement('div');
     toast.className = 'toast';
@@ -837,17 +857,10 @@ class MovieCatalogApp {
     setTimeout(() => toast.remove(), 3000);
   }
 
-  /**
-   * Shows error toast.
-   * @param {string} message - Error message.
-   */
   showError(message) {
     this.showToast(`Ошибка: ${message}`);
   }
 
-  /**
-   * Hides parts section (franchise parts).
-   */
   hidePartsSection() {
     const partsSection = document.querySelector('#partsSection');
     if (partsSection) {
@@ -856,5 +869,4 @@ class MovieCatalogApp {
   }
 }
 
-// Initialize app
 const movieApp = new MovieCatalogApp();
