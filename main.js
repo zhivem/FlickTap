@@ -10,7 +10,24 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const store = new Store();
-app.disableHardwareAcceleration();
+
+// Конфигурация приложения
+const APP_CONFIG = {
+  API_TOKEN: "a7561cad55b026360ae38eb03a1af11a",
+  API_BASE: "https://api.bhcesh.me",
+  TMDB_API_KEY: "fb503e572e2caa98d95adbb96e68b9f2",
+  TMDB_BASE_URL: "https://api.themoviedb.org/3",
+  TMDB_IMAGE_BASE: "https://image.tmdb.org/t/p/w500",
+  WINDOW: {
+    width: 1200,
+    height: 750,
+    minWidth: 1200,
+    minHeight: 750,
+    frame: false,
+    titleBarStyle: 'hidden',
+    backgroundColor: '#0f0f0f'
+  }
+};
 
 class LimitedCache {
   constructor(maxSize = 100, ttl = 5 * 60 * 1000) {
@@ -63,31 +80,11 @@ class MovieApp {
   constructor() {
     this.mainWindow = null;
     this.adBlocker = null;
-    this.config = this.getConfig();
-  }
-
-  getConfig() {
-    return {
-      API_TOKEN: "API",
-      API_BASE: "API",
-      TMDB_API_KEY: "API",
-      TMDB_BASE_URL: "API",
-      TMDB_IMAGE_BASE: "API",
-      WINDOW: {
-        width: 1200,
-        height: 750,
-        minWidth: 1200,
-        minHeight: 750,
-        frame: false,
-        titleBarStyle: 'hidden',
-        backgroundColor: '#0f0f0f'
-      }
-    };
   }
 
   async createWindow() {
     this.mainWindow = new BrowserWindow({
-      ...this.config.WINDOW,
+      ...APP_CONFIG.WINDOW,
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
@@ -102,10 +99,7 @@ class MovieApp {
     this.mainWindow.once('ready-to-show', () => this.mainWindow.show());
     this.mainWindow.on('maximize', () => this.mainWindow.webContents.send('window-maximized'));
     this.mainWindow.on('unmaximize', () => this.mainWindow.webContents.send('window-unmaximized'));
-
-    this.mainWindow.on('close', () => {
-      cache.clear();
-    });
+    this.mainWindow.on('close', () => cache.clear());
 
     await this.initializeAdBlocker();
     await this.mainWindow.loadFile('index.html');
@@ -136,8 +130,7 @@ class MovieApp {
 }
 
 class ApiService {
-  constructor(config) {
-    this.config = config;
+  constructor() {
     this.axiosInstance = axios.create({
       timeout: 10000,
       headers: {
@@ -155,14 +148,9 @@ class ApiService {
     }
 
     try {
-      const response = await this.axiosInstance.get(url, {
-        params,
-        ...options
-      });
-      
+      const response = await this.axiosInstance.get(url, { params, ...options });
       const result = { success: true, data: response.data };
       cache.set(cacheKey, result);
-      
       return result;
     } catch (error) {
       return { 
@@ -175,17 +163,17 @@ class ApiService {
 
   async getMovieList(params = {}) {
     const defaultParams = {
-      token: this.config.API_TOKEN,
+      token: APP_CONFIG.API_TOKEN,
       limit: params.limit || 12,
       page: params.page || 1
     };
-    return await this.makeRequest(`${this.config.API_BASE}/list`, { ...defaultParams, ...params });
+    return await this.makeRequest(`${APP_CONFIG.API_BASE}/list`, { ...defaultParams, ...params });
   }
 
   async getMovieDetails(params) {
     return await this.makeRequest(
-      `${this.config.API_BASE}/franchise/details`,
-      { token: this.config.API_TOKEN, ...params },
+      `${APP_CONFIG.API_BASE}/franchise/details`,
+      { token: APP_CONFIG.API_TOKEN, ...params },
       { timeout: 8000 }
     );
   }
@@ -208,13 +196,13 @@ class ApiService {
 
     try {
       const data = result.data;
-      if (data.status === 'success' && data.data && data.data.id_tmdb) {
+      if (data.status === 'success' && data.data?.id_tmdb) {
         const tmdbResult = { success: true, data: { tmdbId: data.data.id_tmdb } };
         cache.set(cacheKey, tmdbResult);
         return tmdbResult;
       }
       return { success: false, error: 'TMDB ID not found' };
-    } catch (error) {
+    } catch {
       return { success: false, error: 'Failed to parse TMDB API response' };
     }
   }
@@ -226,15 +214,13 @@ class ApiService {
 
     try {
       const tmdbResult = await this.getTmdbId(kinopoiskId);
-      if (!tmdbResult.success) {
-        return tmdbResult;
-      }
+      if (!tmdbResult.success) return tmdbResult;
 
       const response = await this.axiosInstance.get(
-        `${this.config.TMDB_BASE_URL}/${mediaType}/${tmdbResult.data.tmdbId}`,
+        `${APP_CONFIG.TMDB_BASE_URL}/${mediaType}/${tmdbResult.data.tmdbId}`,
         {
           params: {
-            api_key: this.config.TMDB_API_KEY,
+            api_key: APP_CONFIG.TMDB_API_KEY,
             language: 'ru-RU'
           }
         }
@@ -247,20 +233,15 @@ class ApiService {
         if (posterPath) {
           resultData = {
             success: true,
-            data: {
-              posterUrl: `${this.config.TMDB_IMAGE_BASE}${posterPath}`
-            }
+            data: { posterUrl: `${APP_CONFIG.TMDB_IMAGE_BASE}${posterPath}` }
           };
         }
       } else if (dataType === 'description') {
         const description = response.data.overview;
-        if (description && description.trim() !== '') {
+        if (description?.trim()) {
           resultData = {
             success: true,
-            data: {
-              description: description,
-              source: 'tmdb'
-            }
+            data: { description, source: 'tmdb' }
           };
         }
       }
@@ -286,23 +267,20 @@ class ApiService {
 }
 
 class SettingsService {
-  constructor(store, app) {
-    this.store = store;
-    this.app = app;
-  }
+  constructor() {}
 
   getSettings() {
     return {
-      blockAds: this.store.get('blockAds', true),
-      autoStart: this.app.getLoginItemSettings().openAtLogin,
-      highQualityPosters: this.store.get('highQualityPosters', false),
-      useTmdbDescriptions: this.store.get('useTmdbDescriptions', true)
+      blockAds: store.get('blockAds', true),
+      autoStart: app.getLoginItemSettings().openAtLogin,
+      highQualityPosters: store.get('highQualityPosters', false),
+      useTmdbDescriptions: store.get('useTmdbDescriptions', true)
     };
   }
 
   async setBlockAds(enabled, adBlocker) {
     try {
-      this.store.set('blockAds', enabled);
+      store.set('blockAds', enabled);
       await session.defaultSession.clearCache();
       if (enabled && !adBlocker) {
         return { success: true };
@@ -315,9 +293,23 @@ class SettingsService {
     }
   }
 
+    async clearAllCache() {
+      try {
+        cache.clear();
+        
+        await session.defaultSession.clearCache();
+        
+        await session.defaultSession.clearStorageData();
+        
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    }
+
   setAutoStart(enabled) {
     try {
-      this.app.setLoginItemSettings({
+      app.setLoginItemSettings({
         openAtLogin: enabled,
         path: process.execPath,
         args: []
@@ -330,7 +322,7 @@ class SettingsService {
 
   setHighQualityPosters(enabled) {
     try {
-      this.store.set('highQualityPosters', enabled);
+      store.set('highQualityPosters', enabled);
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
@@ -339,7 +331,7 @@ class SettingsService {
 
   setUseTmdbDescriptions(enabled) {
     try {
-      this.store.set('useTmdbDescriptions', enabled);
+      store.set('useTmdbDescriptions', enabled);
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
@@ -348,17 +340,15 @@ class SettingsService {
 }
 
 const movieApp = new MovieApp();
-const apiService = new ApiService(movieApp.config);
-const settingsService = new SettingsService(store, app);
+const apiService = new ApiService();
+const settingsService = new SettingsService();
 
 const ipcHandlers = {
   'window-minimize': () => movieApp.mainWindow.minimize(),
   'window-maximize': () => {
-    if (movieApp.mainWindow.isMaximized()) {
-      movieApp.mainWindow.unmaximize();
-    } else {
-      movieApp.mainWindow.maximize();
-    }
+    movieApp.mainWindow.isMaximized() 
+      ? movieApp.mainWindow.unmaximize() 
+      : movieApp.mainWindow.maximize();
   },
   'window-close': () => movieApp.mainWindow.close(),
   'get-movie-list': (_, params) => apiService.getMovieList(params),
@@ -379,10 +369,7 @@ const ipcHandlers = {
   'set-auto-start': (_, enabled) => settingsService.setAutoStart(enabled),
   'set-high-quality-posters': (_, enabled) => settingsService.setHighQualityPosters(enabled),
   'set-use-tmdb-descriptions': (_, enabled) => settingsService.setUseTmdbDescriptions(enabled),
-  'clear-cache': () => {
-    cache.clear();
-    return { success: true };
-  }
+  'clear-cache': () => settingsService.clearAllCache() 
 };
 
 Object.entries(ipcHandlers).forEach(([channel, handler]) => {
@@ -393,10 +380,8 @@ app.whenReady().then(() => movieApp.createWindow());
 
 app.on('before-quit', () => {
   cache.clear();
-  if (movieApp.mainWindow) {
-    movieApp.mainWindow.removeAllListeners();
-    movieApp.mainWindow = null;
-  }
+  movieApp.mainWindow?.removeAllListeners();
+  movieApp.mainWindow = null;
 });
 
 app.on('window-all-closed', () => {

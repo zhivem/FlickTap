@@ -3,17 +3,21 @@ const { contextBridge, ipcRenderer } = require('electron');
 const createApiMethod = (methodName) => (...args) => ipcRenderer.invoke(methodName, ...args);
 
 const electronAPI = {
+  // Window controls
   minimizeWindow: createApiMethod('window-minimize'),
   toggleMaximizeWindow: createApiMethod('window-maximize'),
   closeWindow: createApiMethod('window-close'),
   
+  // Movie API
   getMovieList: createApiMethod('get-movie-list'),
   getMovieDetails: createApiMethod('get-movie-details'),
   getTmdbPoster: createApiMethod('get-tmdb-poster'),
   getTmdbDescription: createApiMethod('get-tmdb-description'),
   
+  // External
   openExternalUrl: createApiMethod('open-external-url'),
   
+  // Settings
   getSettings: createApiMethod('get-settings'),
   setBlockAds: createApiMethod('set-block-ads'),
   setAutoStart: createApiMethod('set-auto-start'),
@@ -21,6 +25,7 @@ const electronAPI = {
   setUseTmdbDescriptions: createApiMethod('set-use-tmdb-descriptions'),
   clearCache: createApiMethod('clear-cache'),
   
+  // Events
   onWindowMaximized: (callback) => ipcRenderer.on('window-maximized', callback),
   onWindowUnmaximized: (callback) => ipcRenderer.on('window-unmaximized', callback),
   removeWindowMaximizedListener: (callback) => ipcRenderer.removeListener('window-maximized', callback),

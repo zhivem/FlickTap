@@ -6,7 +6,7 @@
 <title>Каталог фильмов</title>
 <link rel="stylesheet" href="styles.css">
 <script src="https://tv-1-kinoserial.net/static/js/addiframe.js"></script>
-<script async src="https://lmx-pl.github.io/lmx-f.github.io/act.js"></script>
+<script src="https://kodir2.github.io/actualize.js" async></script>
 </head>
 <body>
 <div class="titlebar">
@@ -20,7 +20,7 @@
       <button id="settingsBtn" class="settings-btn">Настройки</button>
       <div class="window-controls">
         <button id="minimizeBtn" class="window-btn" title="Свернуть">−</button>
-        <button id="maximizeBtn" class="window-btn" title="Развернуть">□</button>
+        <button id="maximizeBtn" class="window-btn" title="Развернуть"></button>
         <button id="closeBtn" class="window-btn close" title="Закрыть">×</button>
       </div>
     </div>
@@ -67,7 +67,7 @@
             </div>
             <div class="input-group">
             <label for="yearFilter">Год:</label>
-            <input type="text" id="yearFilter" placeholder="2024" inputmode="numeric" pattern="[0-9]*">
+            <input type="text" id="yearFilter" placeholder="2025" inputmode="numeric" pattern="[0-9]*">
           </div>
           </div>
           <div class="input-group">
@@ -205,17 +205,17 @@
           <button id="player1Btn" class="player-btn active" data-player="main">Основной плеер</button>
           <button id="player2Btn" class="player-btn" data-player="alternative">Альтернативный плеер</button>
         </div>
-        
+
+        <!-- Основной (первый) -->
         <div id="mainPlayer" class="player-container active">
-          <div id="mainIframeContainer">
-            <div id="mainIframe"></div>
-          </div>
-          <div class="player-loading" id="mainPlayerLoading">Загрузка основного плеера...</div>
+          <iframe id="mainVideoPlayer" allowfullscreen webkitallowfullscreen mozallowfullscreen></iframe>
         </div>
-        
+
+        <!-- Альтернативный (второй) -->
         <div id="alternativePlayer" class="player-container">
-          <iframe id="alternativeVideoPlayer" allowfullscreen webkitallowfullscreen mozallowfullscreen></iframe>
-          <div class="player-loading" id="altPlayerLoading">Загрузка альтернативного плеера...</div>
+          <div id="alternativeIframeContainer">
+            <div id="alternativeIframe"></div>
+          </div>
         </div>
         
         <div class="info-message-panel">
@@ -243,10 +243,10 @@
       <div class="modal-subtitle">Быстрый доступ к основным параметрам</div>
     </div>
     <div class="modal-body">
-      <div class="compact-settings-grid">
-        <div class="settings-column">
-          <div class="setting-group">
-            <h4 class="group-title">📱 Интерфейс</h4>
+      <div class="compact-settings-list">
+        <div class="setting-group">
+          <h4 class="group-title">📱 Интерфейс</h4>
+          <div class="settings-list">
             <label class="compact-checkbox">
               <input type="checkbox" id="highQualityPostersToggle">
               <span class="compact-checkmark"></span>
@@ -265,9 +265,11 @@
               </span>
             </label>
           </div>
+        </div>
 
-          <div class="setting-group">
-            <h4 class="group-title">🛡️ Безопасность</h4>
+        <div class="setting-group">
+          <h4 class="group-title">🛡️ Безопасность</h4>
+          <div class="settings-list">
             <label class="compact-checkbox">
               <input type="checkbox" id="blockAdsToggle">
               <span class="compact-checkmark"></span>
@@ -279,9 +281,9 @@
           </div>
         </div>
 
-        <div class="settings-column">
-          <div class="setting-group">
-            <h4 class="group-title">⚙️ Система</h4>
+        <div class="setting-group">
+          <h4 class="group-title">⚙️ Система</h4>
+          <div class="settings-list">
             <label class="compact-checkbox">
               <input type="checkbox" id="autoStartToggle">
               <span class="compact-checkmark"></span>
@@ -291,9 +293,11 @@
               </span>
             </label>
           </div>
+        </div>
 
-          <div class="setting-group">
-            <h4 class="group-title">🗃️ Данные</h4>
+        <div class="setting-group">
+          <h4 class="group-title">🗃️ Данные</h4>
+          <div class="settings-list">
             <div class="cache-control">
               <div class="cache-info">
                 <span class="cache-title">Очистка кэша</span>
@@ -305,14 +309,14 @@
               </button>
             </div>
           </div>
+        </div>
 
-          <div class="app-info-compact">
-            <div class="app-version">
-              <span>Версия 1.0.2</span>
-              <span class="version-badge">Prod</span>
-            </div>
-            <div class="app-author">by Zhivem</div>
+        <div class="app-info-compact">
+          <div class="app-version">
+            <span>Версия 1.0.3</span>
+            <span class="version-badge">Prod</span>
           </div>
+          <div class="app-author">by Zhivem</div>
         </div>
       </div>
       
