@@ -13,9 +13,9 @@ const store = new Store();
 
 // Конфигурация приложения
 const APP_CONFIG = {
-  API_TOKEN: "a7561cad55b026360ae38eb03a1af11a",
+  API_TOKEN: "",
   API_BASE: "https://api.bhcesh.me",
-  TMDB_API_KEY: "fb503e572e2caa98d95adbb96e68b9f2",
+  TMDB_API_KEY: "",
   TMDB_BASE_URL: "https://api.themoviedb.org/3",
   TMDB_IMAGE_BASE: "https://image.tmdb.org/t/p/w500",
   WINDOW: {

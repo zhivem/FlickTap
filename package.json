@@ -1,6 +1,6 @@
 {
   "name": "movie-search-app",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Приложение для поиска и просмотра фильмов",
   "main": "main.js",
   "type": "module",
@@ -59,11 +59,11 @@
     "forceCodeSigning": false
   },
   "devDependencies": {
-    "electron": "^39.2.6",
-    "electron-builder": "^26.3.4"
+    "electron": "^39.2.7",
+    "electron-builder": "^26.4.0"
   },
   "dependencies": {
-    "@ghostery/adblocker-electron": "^2.13.0",
+    "@ghostery/adblocker-electron": "^2.13.1",
     "axios": "^1.13.2",
     "cross-fetch": "^4.1.0",
     "electron-store": "^11.0.2"
