@@ -145,7 +145,7 @@ class MovieCatalogApp {
       ['#settingsBtn', () => this.showModal('#settingsModal')],
       ['#openFramerateLink', (e) => {
         e.preventDefault();
-        window.electronAPI.openExternalUrl('https://framerate.live');
+        window.electronAPI.openExternalUrl('https://framerate.online');
       }],
       ['#clearCacheBtn', () => this.clearCache()]
     ];
