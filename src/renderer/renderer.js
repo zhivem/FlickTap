@@ -36,8 +36,9 @@ class MovieCatalogApp {
       },
       isSearching: false,
       searchParams: {},
-      currentMovie: null
-      ,newsTab: 'all'
+      currentMovie: null,
+      newsTab: 'all',
+      currentVersion: '1.0.0'
     };
   }
 
@@ -78,11 +79,12 @@ class MovieCatalogApp {
   async init() {
     this.createLoadingOverlay();
     this.bindEvents();
+    await this.loadVersion();
     await this.loadSettings();
     await this.loadMovies();
     
     // Check for updates in background (don't block initialization)
-    this.checkForUpdates().catch(err => console.error('Update check failed:', err));
+    this.checkForUpdates().catch(() => {});
   }
 
   createLoadingOverlay() {
@@ -348,9 +350,7 @@ class MovieCatalogApp {
 
     container.innerHTML = items.map(it => this.createNewsCard(it)).join('');
     // Enrich posters for items that lack them (background task with retry)
-    this.enrichNewsPosters(items).catch(err => {
-      console.warn('Ошибка загрузки постеров:', err);
-    });
+    this.enrichNewsPosters(items).catch(() => {});
   }
 
   async enrichNewsPosters(items) {
@@ -550,6 +550,22 @@ class MovieCatalogApp {
       this.applyTheme(this.state.settings.theme || 'dark');
     } catch (error) {
       this.showError('Не удалось загрузить настройки');
+    }
+  }
+
+  async loadVersion() {
+    try {
+      const result = await window.electronAPI.getVersion();
+      this.state.currentVersion = result.version;
+      this.updateVersionUI();
+    } catch (error) {
+    }
+  }
+
+  updateVersionUI() {
+    const versionSpan = document.getElementById('appVersion');
+    if (versionSpan) {
+      versionSpan.textContent = `Версия ${this.state.currentVersion}`;
     }
   }
 
@@ -942,7 +958,6 @@ class MovieCatalogApp {
 
     // Проверяем доступность видео
     if (!iframeUrl || iframeUrl === 'null' || iframeUrl === 'none') {
-      console.warn('Видеофайл недоступен: iframe_url не найден в API');
       this.showError('Видеофайл для этого фильма еще недоступен');
       player.src = 'about:blank';
       return;
@@ -951,7 +966,6 @@ class MovieCatalogApp {
     // Загружаем плеер с параметрами
     setTimeout(() => {
       player.src = iframeUrl + '?autoplay=1&muted=0&theme=4'; 
-      console.log('Плеер загружен с iframe_url:', iframeUrl);
     }, 120);
   }
 
@@ -1200,7 +1214,6 @@ class MovieCatalogApp {
         this.showUpdateModal(result.currentVersion, result.remoteVersion);
       }
     } catch (error) {
-      console.error('Failed to check updates:', error);
     }
   }
 

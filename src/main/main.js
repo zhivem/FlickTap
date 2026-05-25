@@ -115,7 +115,6 @@ class MovieApp {
         this.adBlocker.enableBlockingInSession(session.defaultSession);
       }
     } catch (error) {
-      console.error('AdBlocker initialization failed:', error);
     }
   }
 }
@@ -190,18 +189,20 @@ class ApiService {
 class UpdateService {
   constructor() {
     this.GITHUB_REPO = 'zhivem/FlickTap';
-    this.VERSION_URL = 'https://raw.githubusercontent.com/zhivem/FlickTap/main/version.json';
+    this.VERSION_URL = 'https://raw.githubusercontent.com/zhivem/FlickTap/refs/heads/main/version.json';
     this.RELEASES_URL = 'https://github.com/zhivem/FlickTap/releases';
-    this.versionFilePath = path.join(path.dirname(__dirname), 'version.json');
+    // __dirname = /FlickTap/src/main
+    // path.dirname(__dirname) = /FlickTap/src
+    // path.dirname(path.dirname(__dirname)) = /FlickTap
+    this.packageJsonPath = path.join(path.dirname(path.dirname(__dirname)), 'package.json');
   }
 
   async getCurrentVersion() {
     try {
-      const data = await fs.readFile(this.versionFilePath, 'utf-8');
-      const versionData = JSON.parse(data);
-      return versionData.version || '1.0.0';
+      const data = await fs.readFile(this.packageJsonPath, 'utf-8');
+      const packageData = JSON.parse(data);
+      return packageData.version || '1.0.0';
     } catch (error) {
-      console.error('Failed to read local version:', error);
       return '1.0.0';
     }
   }
@@ -209,17 +210,25 @@ class UpdateService {
   async checkForUpdates() {
     try {
       const response = await fetch(this.VERSION_URL, { timeout: 5000 });
+      
       if (!response.ok) {
         return { hasUpdate: false, error: 'Failed to fetch version' };
       }
 
       const remoteData = await response.json();
-      const remoteVersion = remoteData.version;
+      
+      const remoteVersion = remoteData.version?.trim();
 
-      // Get current version from local version.json
+      // Get current version from package.json
       const currentVersion = await this.getCurrentVersion();
 
-      if (this.isNewerVersion(remoteVersion, currentVersion)) {
+      if (!remoteVersion) {
+        return { hasUpdate: false };
+      }
+
+      const hasUpdate = this.isNewerVersion(remoteVersion, currentVersion);
+      
+      if (hasUpdate) {
         return {
           hasUpdate: true,
           currentVersion,
@@ -230,7 +239,6 @@ class UpdateService {
 
       return { hasUpdate: false };
     } catch (error) {
-      console.error('Update check failed:', error);
       return { hasUpdate: false, error: error.message };
     }
   }
@@ -356,7 +364,11 @@ const ipcHandlers = {
   'set-kinopoisk-posters': (_, enabled) => settingsService.setKinopoiskPosters(enabled),
   'set-theme': (_, theme) => settingsService.setTheme(theme),
   'clear-cache': () => settingsService.clearAllCache(),
-  'check-updates': () => updateService.checkForUpdates() 
+  'check-updates': () => updateService.checkForUpdates(),
+  'get-version': async () => {
+    const version = await updateService.getCurrentVersion();
+    return { version };
+  } 
 };
 
 Object.entries(ipcHandlers).forEach(([channel, handler]) => {

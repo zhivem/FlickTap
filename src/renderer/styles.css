@@ -1,11 +1,11 @@
 :root {--bg-primary:#0f0f0f; --bg-secondary:#1a1a1a; --bg-tertiary:#2d2d2d; --accent-primary:#bb86fc; --accent-secondary:#03dac6; --text-primary:#ffffff; --text-secondary:#b0b0b0; --text-muted:#888888; --border-color:#333333; --shadow:0 2px 8px rgba(0,0,0,0.3)}
-:root.light-theme {--bg-primary:#ffffff; --bg-secondary:#f5f5f5; --bg-tertiary:#ebebeb; --accent-primary:#6200ee; --accent-secondary:#00bcd4; --text-primary:#1a1a1a; --text-secondary:#424242; --text-muted:#999999; --border-color:#cccccc; --shadow:0 2px 8px rgba(0,0,0,0.1)}
+:root.light-theme {--bg-primary:#f8f9fa; --bg-secondary:#ffffff; --bg-tertiary:#f0f1f3; --accent-primary:#6b5aff; --accent-secondary:#00d4ff; --text-primary:#1a1a1a; --text-secondary:#4a4a4a; --text-muted:#8a8a8a; --border-color:#e0e1e3; --shadow:0 2px 8px rgba(0,0,0,0.08)}
 * {margin:0; padding:0; box-sizing:border-box}
 body,html {height:100%; font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var(--bg-primary); color:var(--text-primary); line-height:1.5; overflow:hidden; font-size:15px; transition:background-color 0.3s ease,color 0.3s ease,border-color 0.3s ease}
 .titlebar {height:60px; background:var(--bg-secondary); border-bottom:1px solid var(--border-color); display:flex; align-items:center; padding:0 15px; -webkit-app-region:drag; user-select:none; transition:background-color 0.3s ease,border-color 0.3s ease}
 .titlebar-content {display:flex; justify-content:space-between; align-items:center; width:100%}
 .titlebar-title h1 {font-size:20px; font-weight:700; background:linear-gradient(135deg,#bb86fc 0,#03dac6 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:2px}
-:root.light-theme .titlebar-title h1 {background:linear-gradient(135deg,#6200ee 0,#00897b 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text}
+:root.light-theme .titlebar-title h1 {background:linear-gradient(135deg,#6b5aff 0,#00d4ff 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text}
 .titlebar-title .subtitle {font-size:12px; color:var(--text-secondary)}
 .titlebar-controls {display:flex; gap:8px; align-items:center; -webkit-app-region:no-drag}
 .back-btn,.settings-btn {background:var(--bg-tertiary); border:1px solid var(--border-color); color:var(--text-primary); padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer; transition:0.2s}
@@ -266,3 +266,30 @@ body:hover::-webkit-scrollbar-thumb {opacity:1}
 :root.light-theme .movie-quality-tag {color:#fff}
 :root.light-theme .loading-overlay {background:rgba(255,255,255,0.95)}
 :root.light-theme .loading-spinner {border:4px solid rgba(200,200,200,0.3)}
+
+/* Update Modal Styles */
+#updateModal .modal-content {background:linear-gradient(135deg,var(--bg-secondary) 0%,var(--bg-tertiary) 100%); border:2px solid var(--accent-primary); box-shadow:0 8px 32px rgba(0,0,0,0.4)}
+#updateModal .modal-header {background:linear-gradient(135deg,var(--accent-primary) 0%,var(--accent-secondary) 100%); color:#fff; padding:20px; border-radius:12px 12px 0 0}
+#updateModal .modal-header h2 {font-size:18px; font-weight:700; margin:0}
+#updateModal .modal-body {padding:30px 20px; text-align:center; flex:1}
+#updateModal .modal-body>div:first-child>div:first-child {font-size:60px; margin-bottom:20px; animation:bounce 2s infinite}
+@keyframes bounce {0%,100% {transform:translateY(0)} 50% {transform:translateY(-10px)}}
+#updateModal .modal-body p {font-size:16px; color:var(--text-primary); margin-bottom:15px; font-weight:500}
+#updateModal .modal-body>div:last-child {background:var(--bg-primary); padding:15px; border-radius:8px; margin:15px 0; border:1px solid var(--border-color)}
+#updateModal .modal-body>div:last-child>div {margin:8px 0; font-size:14px}
+#updateModal .modal-body strong {color:var(--accent-primary); font-weight:600}
+#updateModal .modal-footer {display:flex; gap:12px; justify-content:flex-end; padding:15px 20px; border-top:1px solid var(--border-color); background:var(--bg-primary)}
+#updateModal .modal-footer button {padding:10px 20px; border:none; border-radius:6px; font-size:14px; font-weight:600; cursor:pointer; transition:0.3s ease}
+#updateModal .modal-footer button:first-child {background:linear-gradient(135deg,var(--bg-secondary) 0%,var(--bg-tertiary) 100%); color:#fff; border:2px solid var(--accent-primary); font-weight:600}
+#updateModal .modal-footer button:first-child:hover {background:rgba(187,134,252,0.3); border:2px solid var(--accent-primary); color:#fff; transform:translateY(-2px); box-shadow:0 0 12px rgba(187,134,252,0.4)}
+#updateModal #updateBtn {background:linear-gradient(135deg,var(--accent-primary) 0%,var(--accent-secondary) 100%); color:#fff; font-weight:700; box-shadow:0 4px 12px rgba(187,134,252,0.3)}
+#updateModal #updateBtn:hover {transform:translateY(-2px); box-shadow:0 6px 16px rgba(187,134,252,0.5)}
+:root.light-theme #updateModal .modal-content {background:linear-gradient(135deg,#f8f9fa 0%,#f0f1f3 100%)}
+:root.light-theme #updateModal .modal-header {background:linear-gradient(135deg,#6b5aff 0%,#00d4ff 100%)}
+:root.light-theme #updateModal .modal-footer button:first-child {background:linear-gradient(135deg,#f8f9fa 0%,#f0f1f3 100%); color:#fff; border:2px solid #6b5aff; font-weight:600}
+:root.light-theme #updateModal .modal-footer button:first-child:hover {background:rgba(107,90,255,0.4); border:2px solid #6b5aff; color:#fff; transform:translateY(-2px); box-shadow:0 0 12px rgba(107,90,255,0.3)}
+:root.light-theme #updateModal #updateBtn {background:linear-gradient(135deg,#6b5aff 0%,#00d4ff 100%); box-shadow:0 4px 12px rgba(107,90,255,0.25)}
+:root.light-theme #updateModal #updateBtn:hover {box-shadow:0 6px 16px rgba(107,90,255,0.4)}
+
+/* Light theme select dropdown */
+:root.light-theme .input-group select {background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b5aff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")}

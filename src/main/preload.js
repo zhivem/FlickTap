@@ -15,6 +15,7 @@ const electronAPI = {
   
   // External
   openExternalUrl: createApiMethod('open-external-url'),
+  openExternal: createApiMethod('open-external-url'),
   
   // Settings
   getSettings: createApiMethod('get-settings'),
@@ -23,6 +24,10 @@ const electronAPI = {
   setKinopoiskPosters: createApiMethod('set-kinopoisk-posters'),
   setTheme: createApiMethod('set-theme'),
   clearCache: createApiMethod('clear-cache'),
+  
+  // Updates
+  checkUpdates: createApiMethod('check-updates'),
+  getVersion: createApiMethod('get-version'),
   
   // Events
   onWindowMaximized: (callback) => ipcRenderer.on('window-maximized', callback),

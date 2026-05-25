@@ -295,7 +295,7 @@
 
         <div class="app-info-compact">
           <div class="app-version">
-            <span>Версия 1.0.5</span>
+            <span id="appVersion">Версия 1.0.5</span>
             <span class="version-badge">Prod</span>
           </div>
           <div class="app-author">by Zhivem</div>
@@ -315,7 +315,6 @@
   <div class="modal-content" style="max-width: 400px;">
     <div class="modal-header">
       <h2>Доступно обновление</h2>
-      <button class="modal-close" onclick="document.getElementById('updateModal').classList.remove('active');">×</button>
     </div>
     <div class="modal-body">
       <div style="text-align: center; padding: 20px 0;">
@@ -328,7 +327,7 @@
       </div>
     </div>
     <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end; padding: 15px; border-top: 1px solid #eee;">
-      <button onclick="document.getElementById('updateModal').classList.remove('active');" style="padding: 8px 16px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer;">Позже</button>
+      <button onclick="document.getElementById('updateModal').classList.remove('active');" style="padding: 8px 16px; background: #8a1010; border: none; border-radius: 4px; cursor: pointer;">Позже</button>
       <button id="updateBtn" onclick="window.app?.openReleases();" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Обновить</button>
     </div>
   </div>
