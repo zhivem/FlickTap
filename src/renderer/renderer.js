@@ -80,6 +80,9 @@ class MovieCatalogApp {
     this.bindEvents();
     await this.loadSettings();
     await this.loadMovies();
+    
+    // Check for updates in background (don't block initialization)
+    this.checkForUpdates().catch(err => console.error('Update check failed:', err));
   }
 
   createLoadingOverlay() {
@@ -1190,6 +1193,34 @@ class MovieCatalogApp {
     this.showToast(`Ошибка: ${message}`);
   }
 
+  async checkForUpdates() {
+    try {
+      const result = await window.electronAPI.checkUpdates();
+      if (result && result.hasUpdate) {
+        this.showUpdateModal(result.currentVersion, result.remoteVersion);
+      }
+    } catch (error) {
+      console.error('Failed to check updates:', error);
+    }
+  }
+
+  showUpdateModal(currentVersion, remoteVersion) {
+    const modal = document.getElementById('updateModal');
+    const currentVersionSpan = document.getElementById('currentVersionSpan');
+    const remoteVersionSpan = document.getElementById('remoteVersionSpan');
+
+    if (currentVersionSpan) currentVersionSpan.textContent = currentVersion;
+    if (remoteVersionSpan) remoteVersionSpan.textContent = remoteVersion;
+
+    if (modal) {
+      modal.classList.add('active');
+    }
+  }
+
+  openReleases() {
+    window.electronAPI.openExternal('https://github.com/zhivem/FlickTap/releases');
+  }
+
   destroy() {
     for (const [key, handler] of this.boundHandlers.entries()) {
       if (key === 'escape') {
@@ -1220,6 +1251,7 @@ class MovieCatalogApp {
 }
 
 const movieApp = new MovieCatalogApp();
+window.app = movieApp;
 
 window.addEventListener('beforeunload', () => {
   movieApp?.destroy();
