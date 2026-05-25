@@ -1,8 +1,8 @@
 {
   "name": "movie-search-app",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Приложение для поиска и просмотра фильмов",
-  "main": "main.js",
+  "main": "src/main/main.js",
   "type": "module",
   "scripts": {
     "start": "electron .",
@@ -41,12 +41,9 @@
       "buildResources": "assets"
     },
     "files": [
-      "main.js",
-      "preload.js",
-      "index.html",
-      "styles.css",
-      "renderer.js",
+      "src/**/*",
       "assets/**/*",
+      ".env",
       "!assets/**/*.psd",
       "!assets/**/*.ai"
     ],
@@ -59,13 +56,14 @@
     "forceCodeSigning": false
   },
   "devDependencies": {
-    "electron": "^39.2.7",
+    "electron": "^42.2.0",
     "electron-builder": "^26.4.0"
   },
   "dependencies": {
     "@ghostery/adblocker-electron": "^2.13.1",
     "axios": "^1.13.2",
     "cross-fetch": "^4.1.0",
+    "dotenv": "^17.4.2",
     "electron-store": "^11.0.2"
   },
   "author": "Zhivem",

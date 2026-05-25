@@ -11,8 +11,7 @@ const electronAPI = {
   // Movie API
   getMovieList: createApiMethod('get-movie-list'),
   getMovieDetails: createApiMethod('get-movie-details'),
-  getTmdbPoster: createApiMethod('get-tmdb-poster'),
-  getTmdbDescription: createApiMethod('get-tmdb-description'),
+  getNews: createApiMethod('get-news'),
   
   // External
   openExternalUrl: createApiMethod('open-external-url'),
@@ -21,8 +20,8 @@ const electronAPI = {
   getSettings: createApiMethod('get-settings'),
   setBlockAds: createApiMethod('set-block-ads'),
   setAutoStart: createApiMethod('set-auto-start'),
-  setHighQualityPosters: createApiMethod('set-high-quality-posters'),
-  setUseTmdbDescriptions: createApiMethod('set-use-tmdb-descriptions'),
+  setKinopoiskPosters: createApiMethod('set-kinopoisk-posters'),
+  setTheme: createApiMethod('set-theme'),
   clearCache: createApiMethod('clear-cache'),
   
   // Events

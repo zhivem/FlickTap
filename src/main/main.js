@@ -5,28 +5,18 @@ import axios from 'axios';
 import { ElectronBlocker } from '@ghostery/adblocker-electron';
 import fetch from 'cross-fetch';
 import Store from 'electron-store';
+import { config } from './config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const store = new Store();
 
-// Конфигурация приложения
+// Конфигурация приложения из переменных окружения
 const APP_CONFIG = {
-  API_TOKEN: "",
-  API_BASE: "https://api.bhcesh.me",
-  TMDB_API_KEY: "",
-  TMDB_BASE_URL: "https://api.themoviedb.org/3",
-  TMDB_IMAGE_BASE: "https://image.tmdb.org/t/p/w500",
-  WINDOW: {
-    width: 1200,
-    height: 750,
-    minWidth: 1200,
-    minHeight: 750,
-    frame: false,
-    titleBarStyle: 'hidden',
-    backgroundColor: '#0f0f0f'
-  }
+  API_TOKEN: config.api.token,
+  API_BASE: config.api.base,
+  WINDOW: config.app.window
 };
 
 class LimitedCache {
@@ -102,7 +92,7 @@ class MovieApp {
     this.mainWindow.on('close', () => cache.clear());
 
     await this.initializeAdBlocker();
-    await this.mainWindow.loadFile('index.html');
+    await this.mainWindow.loadFile('src/renderer/index.html');
     this.mainWindow.setMenuBarVisibility(false);
 
     if (process.argv.includes('--debug')) {
@@ -178,91 +168,21 @@ class ApiService {
     );
   }
 
-  async getTmdbId(kinopoiskId) {
-    const cacheKey = `tmdb_id_${kinopoiskId}`;
-    const cached = cache.get(cacheKey);
-    if (cached) return cached;
+  async getNews(params = {}) {
+    const requestedLimit = parseInt(params.limit, 10) || 20;
+    const limit = Math.max(20, Math.min(500, requestedLimit));
+    const defaultParams = {
+      token: APP_CONFIG.API_TOKEN,
+      limit,
+      page: params.page || 1,
+      format: params.format || 'json',
+      ...params
+    };
 
-    const result = await this.makeRequest(
-      `https://api.apbugall.org/`,
-      {
-        token: 'b156e6d24abe787bc067a873c04975',
-        kp: kinopoiskId
-      },
-      { timeout: 5000 }
-    );
+    // Ensure we don't pass a lower-than-min limit
+    defaultParams.limit = limit;
 
-    if (!result.success) return result;
-
-    try {
-      const data = result.data;
-      if (data.status === 'success' && data.data?.id_tmdb) {
-        const tmdbResult = { success: true, data: { tmdbId: data.data.id_tmdb } };
-        cache.set(cacheKey, tmdbResult);
-        return tmdbResult;
-      }
-      return { success: false, error: 'TMDB ID not found' };
-    } catch {
-      return { success: false, error: 'Failed to parse TMDB API response' };
-    }
-  }
-
-  async getTmdbData(kinopoiskId, dataType = 'poster', mediaType = 'movie') {
-    const cacheKey = `tmdb_${dataType}_${kinopoiskId}_${mediaType}`;
-    const cached = cache.get(cacheKey);
-    if (cached) return cached;
-
-    try {
-      const tmdbResult = await this.getTmdbId(kinopoiskId);
-      if (!tmdbResult.success) return tmdbResult;
-
-      const response = await this.axiosInstance.get(
-        `${APP_CONFIG.TMDB_BASE_URL}/${mediaType}/${tmdbResult.data.tmdbId}`,
-        {
-          params: {
-            api_key: APP_CONFIG.TMDB_API_KEY,
-            language: 'ru-RU'
-          }
-        }
-      );
-
-      let resultData = null;
-      
-      if (dataType === 'poster') {
-        const posterPath = response.data.poster_path;
-        if (posterPath) {
-          resultData = {
-            success: true,
-            data: { posterUrl: `${APP_CONFIG.TMDB_IMAGE_BASE}${posterPath}` }
-          };
-        }
-      } else if (dataType === 'description') {
-        const description = response.data.overview;
-        if (description?.trim()) {
-          resultData = {
-            success: true,
-            data: { description, source: 'tmdb' }
-          };
-        }
-      }
-
-      if (resultData) {
-        cache.set(cacheKey, resultData);
-        return resultData;
-      }
-      
-      return { success: false, error: `${dataType} not found in TMDB` };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  }
-
-  async getTmdbPoster(kinopoiskId, mediaType = 'movie') {
-    return this.getTmdbData(kinopoiskId, 'poster', mediaType);
-  }
-
-  async getTmdbDescription(kinopoiskId, mediaType = 'movie') {
-    return this.getTmdbData(kinopoiskId, 'description', mediaType);
+    return await this.makeRequest(`${APP_CONFIG.API_BASE}/video/news`, defaultParams, { timeout: 8000 });
   }
 }
 
@@ -273,8 +193,8 @@ class SettingsService {
     return {
       blockAds: store.get('blockAds', true),
       autoStart: app.getLoginItemSettings().openAtLogin,
-      highQualityPosters: store.get('highQualityPosters', false),
-      useTmdbDescriptions: store.get('useTmdbDescriptions', true)
+      useKinopoiskPosters: store.get('useKinopoiskPosters', true),
+      theme: store.get('theme', 'dark')
     };
   }
 
@@ -307,7 +227,7 @@ class SettingsService {
       }
     }
 
-  setAutoStart(enabled) {
+  async setAutoStart(enabled) {
     try {
       app.setLoginItemSettings({
         openAtLogin: enabled,
@@ -320,18 +240,22 @@ class SettingsService {
     }
   }
 
-  setHighQualityPosters(enabled) {
+  async setKinopoiskPosters(enabled) {
     try {
-      store.set('highQualityPosters', enabled);
+      store.set('useKinopoiskPosters', enabled);
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
     }
   }
 
-  setUseTmdbDescriptions(enabled) {
+  async setTheme(theme) {
     try {
-      store.set('useTmdbDescriptions', enabled);
+      const validThemes = ['light', 'dark', 'system'];
+      if (!validThemes.includes(theme)) {
+        return { success: false, error: 'Invalid theme value' };
+      }
+      store.set('theme', theme);
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
@@ -353,10 +277,7 @@ const ipcHandlers = {
   'window-close': () => movieApp.mainWindow.close(),
   'get-movie-list': (_, params) => apiService.getMovieList(params),
   'get-movie-details': (_, params) => apiService.getMovieDetails(params),
-  'get-tmdb-poster': (_, { kinopoiskId, mediaType }) => 
-    apiService.getTmdbPoster(kinopoiskId, mediaType),
-  'get-tmdb-description': (_, { kinopoiskId, mediaType }) =>
-    apiService.getTmdbDescription(kinopoiskId, mediaType),
+  'get-news': (_, params) => apiService.getNews(params),
   'open-external-url': async (_, url) => {
     if (typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'))) {
       await shell.openExternal(url);
@@ -367,8 +288,8 @@ const ipcHandlers = {
   'get-settings': () => settingsService.getSettings(),
   'set-block-ads': (_, enabled) => settingsService.setBlockAds(enabled, movieApp.adBlocker),
   'set-auto-start': (_, enabled) => settingsService.setAutoStart(enabled),
-  'set-high-quality-posters': (_, enabled) => settingsService.setHighQualityPosters(enabled),
-  'set-use-tmdb-descriptions': (_, enabled) => settingsService.setUseTmdbDescriptions(enabled),
+  'set-kinopoisk-posters': (_, enabled) => settingsService.setKinopoiskPosters(enabled),
+  'set-theme': (_, theme) => settingsService.setTheme(theme),
   'clear-cache': () => settingsService.clearAllCache() 
 };
 
