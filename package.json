@@ -14,27 +14,10 @@
     "productName": "FlickTap",
     "copyright": "Copyright © 2025 Zhivem",
     "compression": "maximum",
+    "asar": false,
     "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "icon": "assets/movie.ico",
-      "requestedExecutionLevel": "asInvoker"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Каталог Фильмов",
-      "installerIcon": "assets/movie.ico",
-      "uninstallerIcon": "assets/movie.ico",
-      "installerHeaderIcon": "assets/movie.ico"
+      "target": "portable",
+      "icon": "assets/movie.ico"
     },
     "directories": {
       "output": "release",
@@ -52,8 +35,7 @@
         "from": "assets/movie.ico",
         "to": "movie.ico"
       }
-    ],
-    "forceCodeSigning": false
+    ]
   },
   "devDependencies": {
     "electron": "^42.2.0",
