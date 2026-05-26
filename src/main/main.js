@@ -82,7 +82,7 @@ class MovieApp {
         webSecurity: false,
         preload: path.join(__dirname, 'preload.js')
       },
-      icon: path.join(__dirname, 'assets', 'movie.ico'),
+      icon: path.join(__dirname, '../../assets/movie.ico'),
       title: "Каталог фильмов",
       show: false
     });

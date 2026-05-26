@@ -7,7 +7,8 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --inspect",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win"
   },
   "build": {
     "appId": "com.zhive.movieapp",
@@ -15,13 +16,15 @@
     "copyright": "Copyright © 2025 Zhivem",
     "compression": "maximum",
     "asar": false,
-    "win": {
-      "target": "portable",
-      "icon": "assets/movie.ico"
-    },
     "directories": {
       "output": "release",
       "buildResources": "assets"
+    },
+    "win": {
+      "target": ["portable"],
+      "icon": "assets/movie.ico",
+      "forceCodeSigning": false,
+      "signAndEditExecutable": true
     },
     "files": [
       "src/**/*",
@@ -29,12 +32,6 @@
       ".env",
       "!assets/**/*.psd",
       "!assets/**/*.ai"
-    ],
-    "extraResources": [
-      {
-        "from": "assets/movie.ico",
-        "to": "movie.ico"
-      }
     ]
   },
   "devDependencies": {
